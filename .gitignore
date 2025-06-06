@@ -1,0 +1,11 @@
+# common build
+build
+
+# Visual Studio Code
+.vscode
+
+# Visual Studio CMake Integration
+.vs
+out
+CMakeSettings.json
+CMakeUserPresets.json
