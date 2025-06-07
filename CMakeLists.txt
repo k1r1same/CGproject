@@ -72,7 +72,7 @@ add_subdirectory(./external/tinygltf)
 set_target_properties(tinygltf PROPERTIES FOLDER "lib")
 
 # add projects
-set(PROJECTS_DIR ${CMAKE_SOURCE_DIR}/projects)
+set(PROJECTS_DIR ${CMAKE_SOURCE_DIR}/src)
 file(GLOB targets LIST_DIRECTORIES true
      RELATIVE ${PROJECTS_DIR} "${PROJECTS_DIR}/*")
 
