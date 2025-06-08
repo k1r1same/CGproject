@@ -2,7 +2,7 @@
 
 const std::string modelRelPath = "obj/bunny.obj";
 
-SceneRoaming::SceneRoaming(const Options& options) : Application(options) {
+Scene::Scene(const Options& options) : Application(options) {
     // set input mode
     glfwSetInputMode(_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     _input.mouse.move.xNow = _input.mouse.move.xOld = 0.5f * _windowWidth;
@@ -10,20 +10,13 @@ SceneRoaming::SceneRoaming(const Options& options) : Application(options) {
     glfwSetCursorPos(_window, _input.mouse.move.xNow, _input.mouse.move.yNow);
 
     // init cameras
-    _cameras.resize(2);
-
     const float aspect = 1.0f * _windowWidth / _windowHeight;
     constexpr float znear = 0.1f;
     constexpr float zfar = 10000.0f;
 
     // perspective camera
-    _cameras[0].reset(new PerspectiveCamera(glm::radians(60.0f), aspect, 0.1f, 10000.0f));
-    _cameras[0]->transform.position = glm::vec3(0.0f, 0.0f, 15.0f);
-
-    // orthographic camera
-    _cameras[1].reset(
-        new OrthographicCamera(-4.0f * aspect, 4.0f * aspect, -4.0f, 4.0f, znear, zfar));
-    _cameras[1]->transform.position = glm::vec3(0.0f, 0.0f, 15.0f);
+    _camera.reset(new PerspectiveCamera(glm::radians(60.0f), aspect, 0.1f, 10000.0f));
+    _camera->transform.position = glm::vec3(0.0f, 0.0f, 15.0f);
 
     // init model
     _bunny.reset(new Model(getAssetFullPath(modelRelPath)));
@@ -32,7 +25,7 @@ SceneRoaming::SceneRoaming(const Options& options) : Application(options) {
     initShader();
 }
 
-void SceneRoaming::handleInput() {
+void Scene::handleInput() {
     constexpr float cameraMoveSpeed = 5.0f;
     constexpr float cameraRotateSpeed = 0.02f;
 
@@ -41,15 +34,7 @@ void SceneRoaming::handleInput() {
         return;
     }
 
-    if (_input.keyboard.keyStates[GLFW_KEY_SPACE] == GLFW_PRESS) {
-        std::cout << "switch camera" << std::endl;
-        // switch camera
-        activeCameraIndex = (activeCameraIndex + 1) % _cameras.size();
-        _input.keyboard.keyStates[GLFW_KEY_SPACE] = GLFW_RELEASE;
-        return;
-    }
-
-    Camera* camera = _cameras[activeCameraIndex].get();
+    Camera* camera = _camera.get();
 
     if (_input.keyboard.keyStates[GLFW_KEY_W] != GLFW_RELEASE) {
         std::cout << "W" << std::endl;
@@ -122,15 +107,15 @@ void SceneRoaming::handleInput() {
     _input.forwardState();
 }
 
-void SceneRoaming::renderFrame() {
+void Scene::renderFrame() {
     showFpsInWindowTitle();
 
     glClearColor(_clearColor.r, _clearColor.g, _clearColor.b, _clearColor.a);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
 
-    glm::mat4 projection = _cameras[activeCameraIndex]->getProjectionMatrix();
-    glm::mat4 view = _cameras[activeCameraIndex]->getViewMatrix();
+    glm::mat4 projection = _camera->getProjectionMatrix();
+    glm::mat4 view = _camera->getViewMatrix();
 
     _shader->use();
     _shader->setUniformMat4("projection", projection);
@@ -140,7 +125,7 @@ void SceneRoaming::renderFrame() {
     _bunny->draw();
 }
 
-void SceneRoaming::initShader() {
+void Scene::initShader() {
     const char* vsCode =
         "#version 330 core\n"
         "layout(location = 0) in vec3 aPosition;\n"
