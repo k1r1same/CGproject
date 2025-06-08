@@ -1,6 +1,6 @@
 #include "scene.h"
 
-const std::string modelRelPath = "obj/bunny.obj";
+const std::string modelRelPath = "obj/turret.obj";
 
 Scene::Scene(const Options& options) : Application(options) {
     // set input mode
