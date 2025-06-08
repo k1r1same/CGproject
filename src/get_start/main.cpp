@@ -1,7 +1,7 @@
 #include <cstdlib>
 #include <iostream>
 
-#include "scene_roaming.h"
+#include "scene.h"
 
 Options getOptions(int argc, char* argv[]) {
     Options options;

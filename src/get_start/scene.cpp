@@ -1,4 +1,4 @@
-#include "scene_roaming.h"
+#include "scene.h"
 
 const std::string modelRelPath = "obj/bunny.obj";
 
