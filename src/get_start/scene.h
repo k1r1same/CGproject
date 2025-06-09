@@ -69,7 +69,7 @@ private:
     std::unique_ptr<GLSLProgram> _shader;
     std::unique_ptr<Model> _sphereModel;
     std::unique_ptr<Model> _cylinderModel;
-    std::unique_ptr<Model> _turret;
+    std::unique_ptr<Model> _turretModel;
     std::unique_ptr<Skybox> _skybox;
     
     // Game parameters
