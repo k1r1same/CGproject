@@ -11,6 +11,7 @@
 #include "../base/skybox.h"
 
 enum class GameState {
+    WaitingToStart,
     Playing,
     GameOver
 };
@@ -49,16 +50,32 @@ public:
 
 private:
     // Game state
-    GameState _gameState = GameState::Playing;
+    GameState _gameState = GameState::WaitingToStart;
     float _gameTime = 0.0f;
     int _currentWave = 1;
     float _waveTime = 30.0f;
     float _waveTimer = 0.0f;
     
+    // UI effects
+    float _blinkTimer = 0.0f;
+    bool _showStartText = true;
+    
     // Camera
     std::unique_ptr<PerspectiveCamera> _camera;
     float _cameraDistance = 15.0f;
     float _cameraAngle = 0.0f;
+    
+    // Mouse camera control
+    float _mouseSensitivity = 0.1f;
+    float _yaw = 0.0f;
+    float _pitch = 0.0f;
+    bool _firstMouse = true;
+    float _lastMouseX = 0.0f;
+    float _lastMouseY = 0.0f;
+    
+    // Free camera movement
+    float _cameraMoveSpeed = 10.0f;
+    glm::vec3 _freeCameraPos = glm::vec3(0.0f, 5.0f, 15.0f);
     
     // Game objects
     Player _player;
@@ -94,8 +111,12 @@ private:
     void renderBullets();
     void renderLaunchers();
     void renderUI();
+    void renderCrosshair();
     void setupLaunchers(int count);
     void resetGame();
+    void startGame();
+    void updateWaitingState();
+    void renderStartScreen();
     bool isPlayerHit(const Bullet& bullet) const;
     void takeDamage();
     void saveScreenshot();
@@ -104,6 +125,9 @@ private:
     void handleCameraInput();
     void orbitCamera(float deltaAngle);
     void zoomCamera(float deltaZoom);
+    void handleMouseCamera();
+    void handleFreeCameraMovement();
+    void setupCameraForGameState();
 
     /// <summary>
     /// imgui

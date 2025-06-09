@@ -14,12 +14,15 @@
 #endif
 
 Scene::Scene(const Options& options) : Application(options) {
-	glfwSetInputMode(_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+	glfwSetInputMode(_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 	const float aspect = 1.0f * _windowWidth / _windowHeight;
 	_camera.reset(new PerspectiveCamera(glm::radians(60.0f), aspect, 0.1f, 1000.0f));
-	_camera->transform.position = glm::vec3(0.0f, 5.0f, _cameraDistance);
+	_camera->transform.position = _freeCameraPos;
 	_camera->transform.lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+	_lastMouseX = _windowWidth / 2.0f;
+	_lastMouseY = _windowHeight / 2.0f;
 
 	initShader();
 	initGameObjects();
@@ -49,7 +52,6 @@ void Scene::initImGui()
 	ImGui_ImplGlfw_InitForOpenGL(_window, true);
 	ImGui_ImplOpenGL3_Init();
 
-	// ÉèÖÃ³õÊ¼Î»ÖÃ
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();
@@ -84,7 +86,13 @@ void Scene::renderInspectorPanel() {
 		ImGui::SliderFloat("WaveTime", &_waveTime, 10.0f, 100.0f);
 	}
 	if (ImGui::CollapsingHeader("States", ImGuiTreeNodeFlags_DefaultOpen)) {
-		ImGui::TextColored(ImVec4(1, 1, 0, 1), std::string("GameState:").append(_gameState == GameState::Playing ? "Playing" : "GameOver").c_str());
+		std::string gameStateStr;
+		switch (_gameState) {
+			case GameState::WaitingToStart: gameStateStr = "WaitingToStart"; break;
+			case GameState::Playing: gameStateStr = "Playing"; break;
+			case GameState::GameOver: gameStateStr = "GameOver"; break;
+		}
+		ImGui::TextColored(ImVec4(1, 1, 0, 1), std::string("GameState:").append(gameStateStr).c_str());
 		ImGui::TextColored(ImVec4(1, 1, 1, 1), "GameTime: %.2f", _gameTime);
 		ImGui::TextColored(ImVec4(0, 1, 0, 1), "CurrentWave: %d", _currentWave);
 		ImGui::TextColored(ImVec4(0, 0, 1, 1), "WaveTimer: %.2f", _waveTimer);
@@ -202,9 +210,17 @@ void Scene::handleInput() {
 		return;
 	}
 
-	if (_gameState == GameState::Playing) {
+	if (_gameState == GameState::WaitingToStart) {
+		handleMouseCamera();
+		handleFreeCameraMovement();
+		
+		if (_input.keyboard.keyStates[GLFW_KEY_ENTER] == GLFW_PRESS) {
+			startGame();
+		}
+	}
+	else if (_gameState == GameState::Playing) {
 		updatePlayer();
-		handleCameraInput();
+		handleMouseCamera();
 
 		if (_input.mouse.press.left) {
 			// Handle bullet destruction on mouse click
@@ -231,19 +247,18 @@ void Scene::handleInput() {
 
 void Scene::updatePlayer() {
 	float moveSpeed = 5.0f;
-
+	if(_gameState == GameState::Playing) {
 	if (_input.keyboard.keyStates[GLFW_KEY_W] != GLFW_RELEASE ||
 		_input.keyboard.keyStates[GLFW_KEY_UP] != GLFW_RELEASE) {
 		_player.position.y += moveSpeed * _deltaTime;
 		_player.position.y = std::min(_player.position.y, _player.moveRange);
-		updateCamera();
 	}
 
 	if (_input.keyboard.keyStates[GLFW_KEY_S] != GLFW_RELEASE ||
 		_input.keyboard.keyStates[GLFW_KEY_DOWN] != GLFW_RELEASE) {
 		_player.position.y -= moveSpeed * _deltaTime;
 		_player.position.y = std::max(_player.position.y, -_player.moveRange);
-		updateCamera();
+	}
 	}
 }
 
@@ -300,17 +315,32 @@ void Scene::renderFrame() {
 	_shader->setUniformVec3("lightColor", glm::vec3(1.0f, 1.0f, 1.0f));
 	_shader->setUniformFloat("ambientStrength", 0.3f);
 
-	renderPlayer();
-	renderBullets();
-	renderLaunchers();
-
-	_skybox->draw(projection, view);
-
-	renderUI();
+	if (_gameState == GameState::WaitingToStart) {
+		renderPlayer();
+		renderLaunchers();
+		_skybox->draw(projection, view);
+		renderStartScreen();
+		renderUI();
+	}
+	else {
+		renderPlayer();
+		renderBullets();
+		renderLaunchers();
+		_skybox->draw(projection, view);
+		renderUI();
+	}
+	
+	renderCrosshair();
 }
 
 void Scene::updateGame() {
 	_gameTime += _deltaTime;
+	
+	if (_gameState == GameState::WaitingToStart) {
+		updateWaitingState();
+		return;
+	}
+	
 	_waveTimer += _deltaTime;
 
 	updateBullets();
@@ -451,16 +481,186 @@ void Scene::renderLaunchers() {
 }
 
 void Scene::resetGame() {
-	_gameState = GameState::Playing;
+	_gameState = GameState::WaitingToStart;
 	_gameTime = 0.0f;
 	_currentWave = 1;
 	_waveTimer = 0.0f;
 	_player.health = 3;
 	_player.position = glm::vec3(0.0f, 0.0f, 0.0f);
 	_bullets.clear();
+	_blinkTimer = 0.0f;
+	_showStartText = true;
+	
+	_freeCameraPos = glm::vec3(0.0f, 5.0f, 15.0f);
+	_firstMouse = true;
+	setupCameraForGameState();
 	setupLaunchers(_initialLaunchers);
+}
+
+void Scene::startGame() {
+	_gameState = GameState::Playing;
+	_gameTime = 0.0f;
+	_waveTimer = 0.0f;
+	
+	_firstMouse = true;
+	setupCameraForGameState();
+}
+
+void Scene::updateWaitingState() {
+	_blinkTimer += _deltaTime;
+	if (_blinkTimer >= 0.8f) {
+		_showStartText = !_showStartText;
+		_blinkTimer = 0.0f;
+	}
+}
+
+void Scene::renderStartScreen() {
+	ImGui_ImplOpenGL3_NewFrame();
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
+	
+	if (_showStartText) {
+		ImGuiIO& io = ImGui::GetIO();
+		ImVec2 textSize = ImGui::CalcTextSize("Press 'Enter' to Start Game");
+		
+		ImGui::SetNextWindowPos(ImVec2((io.DisplaySize.x - textSize.x) * 0.5f, io.DisplaySize.y * 0.9f));
+		ImGui::SetNextWindowBgAlpha(0.0f);
+		
+		ImGui::Begin("StartPrompt", nullptr, 
+			ImGuiWindowFlags_NoTitleBar | 
+			ImGuiWindowFlags_NoResize | 
+			ImGuiWindowFlags_NoMove | 
+			ImGuiWindowFlags_NoScrollbar | 
+			ImGuiWindowFlags_NoCollapse |
+			ImGuiWindowFlags_AlwaysAutoResize);
+		
+		ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), "Press 'Enter' to Start Game");
+		ImGui::End();
+	}
+	
+	ImGui::Render();
+	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
 void Scene::saveScreenshot() {
 	std::cout << "Screenshot saved (feature to be implemented)" << std::endl;
+}
+
+void Scene::handleMouseCamera() {
+	double xpos, ypos;
+	glfwGetCursorPos(_window, &xpos, &ypos);
+	
+	if (_firstMouse) {
+		_lastMouseX = xpos;
+		_lastMouseY = ypos;
+		_firstMouse = false;
+	}
+	
+	float xoffset = xpos - _lastMouseX;
+	float yoffset = _lastMouseY - ypos;
+	_lastMouseX = xpos;
+	_lastMouseY = ypos;
+	
+	xoffset *= _mouseSensitivity;
+	yoffset *= _mouseSensitivity;
+	
+	_yaw += xoffset;
+	_pitch += yoffset;
+	
+	if (_pitch > 89.0f) _pitch = 89.0f;
+	if (_pitch < -89.0f) _pitch = -89.0f;
+	
+	glm::vec3 front;
+	front.x = cos(glm::radians(_yaw)) * cos(glm::radians(_pitch));
+	front.y = sin(glm::radians(_pitch));
+	front.z = sin(glm::radians(_yaw)) * cos(glm::radians(_pitch));
+	
+	if (_gameState == GameState::WaitingToStart) {
+		_camera->transform.position = _freeCameraPos;
+		_camera->transform.lookAt(_freeCameraPos + glm::normalize(front), glm::vec3(0.0f, 1.0f, 0.0f));
+	}
+	else if (_gameState == GameState::Playing) {
+		_camera->transform.position = _player.position + glm::vec3(0.0f, 1.0f, 0.0f);
+		_camera->transform.lookAt(_player.position + glm::normalize(front), glm::vec3(0.0f, 1.0f, 0.0f));
+	}
+}
+
+void Scene::handleFreeCameraMovement() {
+	float velocity = _cameraMoveSpeed * _deltaTime;
+	
+	glm::vec3 front;
+	front.x = cos(glm::radians(_yaw)) * cos(glm::radians(_pitch));
+	front.y = sin(glm::radians(_pitch));
+	front.z = sin(glm::radians(_yaw)) * cos(glm::radians(_pitch));
+	front = glm::normalize(front);
+	
+	glm::vec3 right = glm::normalize(glm::cross(front, glm::vec3(0.0f, 1.0f, 0.0f)));
+	glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
+
+	if (_input.keyboard.keyStates[GLFW_KEY_W] != GLFW_RELEASE) {
+		_freeCameraPos += front * velocity;
+	}
+	if (_input.keyboard.keyStates[GLFW_KEY_S] != GLFW_RELEASE) {
+		_freeCameraPos -= front * velocity;
+	}
+	if (_input.keyboard.keyStates[GLFW_KEY_A] != GLFW_RELEASE) {
+		_freeCameraPos -= right * velocity;
+	}
+	if (_input.keyboard.keyStates[GLFW_KEY_D] != GLFW_RELEASE) {
+		_freeCameraPos += right * velocity;
+	}
+	if (_input.keyboard.keyStates[GLFW_KEY_Q] != GLFW_RELEASE) {
+		_freeCameraPos -= up * velocity;
+	}
+	if (_input.keyboard.keyStates[GLFW_KEY_E] != GLFW_RELEASE) {
+		_freeCameraPos += up * velocity;
+	}
+}
+
+void Scene::setupCameraForGameState() {
+	if (_gameState == GameState::WaitingToStart) {
+		_camera->transform.position = _freeCameraPos;
+		_camera->transform.lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		_yaw = -90.0f;
+		_pitch = 0.0f;
+	}
+	else if (_gameState == GameState::Playing) {
+		_yaw = -90.0f;
+		_pitch = 0.0f;
+		_camera->transform.position = _player.position + glm::vec3(0.0f, 1.0f, 0.0f);
+		_camera->transform.lookAt(_player.position + glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	}
+}
+
+void Scene::renderCrosshair() {
+	ImGui_ImplOpenGL3_NewFrame();
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
+	
+	ImGuiIO& io = ImGui::GetIO();
+	float centerX = io.DisplaySize.x * 0.5f;
+	float centerY = io.DisplaySize.y * 0.5f;
+	float size = 15.0f;
+	float thickness = 2.0f;
+	
+	ImDrawList* drawList = ImGui::GetForegroundDrawList();
+	ImU32 color = IM_COL32(255, 255, 255, 200);
+	
+	// Draw crosshair
+	drawList->AddLine(
+		ImVec2(centerX - size, centerY), 
+		ImVec2(centerX + size, centerY), 
+		color, thickness
+	);
+	drawList->AddLine(
+		ImVec2(centerX, centerY - size), 
+		ImVec2(centerX, centerY + size), 
+		color, thickness
+	);
+	
+	// Add small center dot
+	drawList->AddCircleFilled(ImVec2(centerX, centerY), 1.5f, color);
+	
+	ImGui::Render();
+	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
