@@ -42,7 +42,7 @@ struct Launcher {
 class Scene : public Application {
 public:
     Scene(const Options& options);
-    ~Scene() = default;
+    ~Scene();
 
     void handleInput() override;
     void renderFrame() override;
@@ -104,4 +104,11 @@ private:
     void handleCameraInput();
     void orbitCamera(float deltaAngle);
     void zoomCamera(float deltaZoom);
+
+    /// <summary>
+    /// imgui
+    /// </summary>
+    void initImGui();
+    void clearImGui();
+    void renderInspectorPanel();
 };
