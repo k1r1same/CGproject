@@ -153,12 +153,14 @@ void Scene::updatePlayer() {
         _input.keyboard.keyStates[GLFW_KEY_UP] != GLFW_RELEASE) {
         _player.position.y += moveSpeed * _deltaTime;
         _player.position.y = std::min(_player.position.y, _player.moveRange);
+        updateCamera();
     }
     
     if (_input.keyboard.keyStates[GLFW_KEY_S] != GLFW_RELEASE ||
         _input.keyboard.keyStates[GLFW_KEY_DOWN] != GLFW_RELEASE) {
         _player.position.y -= moveSpeed * _deltaTime;
         _player.position.y = std::max(_player.position.y, -_player.moveRange);
+        updateCamera();
     }
 }
 
