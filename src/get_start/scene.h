@@ -56,7 +56,7 @@ private:
     float _waveTimer = 0.0f;
     
     // Camera
-    std::unique_ptr<Camera> _camera;
+    std::unique_ptr<PerspectiveCamera> _camera;
     float _cameraDistance = 15.0f;
     float _cameraAngle = 0.0f;
     
