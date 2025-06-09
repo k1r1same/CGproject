@@ -9,11 +9,11 @@ struct GameConfig {
     float waveTime = 30.0f;
     int initialLaunchers = 4;
     int launchersPerWave = 2;
-    float bulletSpeed = 5.0f;
+    float bulletSpeed = 2.0f;
     float launcherRadius = 8.0f;
     float playerMoveRange = 5.0f;
     float playerRadius = 0.5f;
-    float bulletRadius = 0.2f;
+    float bulletRadius = 0.1f;
     int playerMaxHealth = 3;
 };
 

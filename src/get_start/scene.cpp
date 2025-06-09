@@ -8,6 +8,7 @@
 #include <cmath>
 #include <random>
 #include <algorithm>
+#include <limits>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -261,10 +262,11 @@ void Scene::handleInput() {
 		updatePlayer();
 		handleMouseCamera();
 
-		if (_input.mouse.press.left) {
-			// Handle bullet destruction on mouse click
-			// Ray casting implementation would go here
+		bool currentMouseLeftPressed = _input.mouse.press.left;
+		if (currentMouseLeftPressed && !_prevMouseLeftPressed) {
+			handleMouseClick();
 		}
+		_prevMouseLeftPressed = currentMouseLeftPressed;
 
 		if (_input.keyboard.keyStates[GLFW_KEY_F12] == GLFW_PRESS) {
 			saveScreenshot();
@@ -370,7 +372,6 @@ void Scene::renderFrame() {
 		renderBullets();
 		renderLaunchers();
 		_skybox->draw(projection, view);
-		renderUI();
 	}
 	
 	renderCrosshair();
@@ -396,11 +397,18 @@ void Scene::updateBullets() {
 	for (auto& bullet : _bullets) {
 		if (!bullet.active) continue;
 
-		bullet.position += bullet.velocity * _deltaTime;
+		if (bullet.destroying) {
+			bullet.destroyTimer += _deltaTime;
+			if (bullet.destroyTimer >= bullet.destroyDuration) {
+				bullet.active = false;
+			}
+		} else {
+			bullet.position += bullet.velocity * _deltaTime;
 
-		float distanceFromCenter = glm::length(bullet.position);
-		if (distanceFromCenter > 20.0f) {
-			bullet.active = false;
+			float distanceFromCenter = glm::length(bullet.position);
+			if (distanceFromCenter > 20.0f) {
+				bullet.active = false;
+			}
 		}
 	}
 
@@ -497,10 +505,20 @@ void Scene::renderBullets() {
 
 		glm::mat4 model = glm::mat4(1.0f);
 		model = glm::translate(model, bullet.position);
-		model = glm::scale(model, glm::vec3(bullet.radius));
+		
+		if (bullet.destroying) {
+			float progress = bullet.destroyTimer / bullet.destroyDuration;
+			float scale = bullet.radius * (1.0f + progress * 0.5f);
+			model = glm::scale(model, glm::vec3(scale));
+			
+			glm::vec3 destroyColor = glm::mix(bullet.color, glm::vec3(1.0f, 0.0f, 0.0f), progress);
+			_shader->setUniformVec3("objectColor", destroyColor);
+		} else {
+			model = glm::scale(model, glm::vec3(bullet.radius));
+			_shader->setUniformVec3("objectColor", bullet.color);
+		}
 
 		_shader->setUniformMat4("model", model);
-		_shader->setUniformVec3("objectColor", bullet.color);
 
 		if (_sphereModel) {
 			_sphereModel->draw();
@@ -535,6 +553,7 @@ void Scene::resetGame() {
 	
 	_freeCameraPos = glm::vec3(0.0f, 5.0f, 15.0f);
 	_firstMouse = true;
+	_prevMouseLeftPressed = false;
 	setupCameraForGameState();
 	setupLaunchers(_initialLaunchers);
 }
@@ -616,14 +635,15 @@ void Scene::handleMouseCamera() {
 	front.x = cos(glm::radians(_yaw)) * cos(glm::radians(_pitch));
 	front.y = sin(glm::radians(_pitch));
 	front.z = sin(glm::radians(_yaw)) * cos(glm::radians(_pitch));
+	front = glm::normalize(front);
 	
 	if (_gameState == GameState::WaitingToStart) {
 		_camera->transform.position = _freeCameraPos;
-		_camera->transform.lookAt(_freeCameraPos + glm::normalize(front), glm::vec3(0.0f, 1.0f, 0.0f));
+		_camera->transform.lookAt(_freeCameraPos + front, glm::vec3(0.0f, 1.0f, 0.0f));
 	}
 	else if (_gameState == GameState::Playing) {
 		_camera->transform.position = _player.position + glm::vec3(0.0f, 1.0f, 0.0f);
-		_camera->transform.lookAt(_player.position + glm::normalize(front), glm::vec3(0.0f, 1.0f, 0.0f));
+		_camera->transform.lookAt(_player.position + glm::vec3(0.0f, 1.0f, 0.0f) + front, glm::vec3(0.0f, 1.0f, 0.0f));
 	}
 }
 
@@ -663,12 +683,16 @@ void Scene::setupCameraForGameState() {
 	if (_gameState == GameState::WaitingToStart) {
 		_camera->transform.position = _freeCameraPos;
 		_camera->transform.lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-		_yaw = -90.0f;
-		_pitch = 0.0f;
+		if (_yaw == 0.0f && _pitch == 0.0f) {
+			_yaw = -90.0f;
+			_pitch = 0.0f;
+		}
 	}
 	else if (_gameState == GameState::Playing) {
-		_yaw = -90.0f;
-		_pitch = 0.0f;
+		if (_yaw == 0.0f && _pitch == 0.0f) {
+			_yaw = -90.0f;
+			_pitch = 0.0f;
+		}
 		_camera->transform.position = _player.position + glm::vec3(0.0f, 1.0f, 0.0f);
 		_camera->transform.lookAt(_player.position + glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 	}
@@ -705,4 +729,84 @@ void Scene::renderCrosshair() {
 	
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+}
+
+glm::vec3 Scene::screenToWorldRay(float mouseX, float mouseY) {
+	glm::mat4 projection = _camera->getProjectionMatrix();
+	glm::mat4 view = _camera->getViewMatrix();
+	glm::vec4 viewport = glm::vec4(0, 0, _windowWidth, _windowHeight);
+	
+	glm::vec3 nearPoint = glm::unProject(
+		glm::vec3(mouseX, _windowHeight - mouseY, 0.0f),
+		view, projection, viewport
+	);
+	
+	glm::vec3 farPoint = glm::unProject(
+		glm::vec3(mouseX, _windowHeight - mouseY, 1.0f),
+		view, projection, viewport
+	);
+	
+	return glm::normalize(farPoint - nearPoint);
+}
+
+bool Scene::rayIntersectsSphere(const glm::vec3& rayOrigin, const glm::vec3& rayDirection, 
+                               const glm::vec3& sphereCenter, float sphereRadius, float& distance) {
+	glm::vec3 oc = rayOrigin - sphereCenter;
+	float a = glm::dot(rayDirection, rayDirection);
+	float b = 2.0f * glm::dot(oc, rayDirection);
+	float c = glm::dot(oc, oc) - sphereRadius * sphereRadius;
+	
+	float discriminant = b * b - 4 * a * c;
+	if (discriminant < 0) {
+		return false;
+	}
+	
+	float t1 = (-b - sqrt(discriminant)) / (2.0f * a);
+	float t2 = (-b + sqrt(discriminant)) / (2.0f * a);
+	
+	if (t1 > 0) {
+		distance = t1;
+		return true;
+	} else if (t2 > 0) {
+		distance = t2;
+		return true;
+	}
+	
+	return false;
+}
+
+void Scene::handleMouseClick() {
+	glm::vec3 rayOrigin = _camera->transform.position;
+	
+	glm::vec3 rayDirection = screenToWorldRay(_windowWidth * 0.5f, _windowHeight * 0.5f);
+	
+	float closestDistance = std::numeric_limits<float>::max();
+	int closestBulletIndex = -1;
+	
+	for (size_t i = 0; i < _bullets.size(); ++i) {
+		const auto& bullet = _bullets[i];
+		if (!bullet.active || bullet.destroying) continue;
+		
+		float effectiveRadius = bullet.radius * 2.0f;
+		
+		float distance;
+		if (rayIntersectsSphere(rayOrigin, rayDirection, bullet.position, effectiveRadius, distance)) {
+			
+			if (distance < closestDistance) {
+				closestDistance = distance;
+				closestBulletIndex = static_cast<int>(i);
+			}
+		}
+	}
+	
+	if (closestBulletIndex >= 0) {
+		startBulletDestroy(closestBulletIndex);
+	}
+}
+
+void Scene::startBulletDestroy(size_t bulletIndex) {
+	if (bulletIndex < _bullets.size()) {
+		_bullets[bulletIndex].destroying = true;
+		_bullets[bulletIndex].destroyTimer = 0.0f;
+	}
 }
