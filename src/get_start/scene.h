@@ -8,6 +8,7 @@
 #include "../base/camera.h"
 #include "../base/glsl_program.h"
 #include "../base/model.h"
+#include "../base/skybox.h"
 
 enum class GameState {
     Playing,
@@ -69,7 +70,7 @@ private:
     std::unique_ptr<Model> _sphereModel;
     std::unique_ptr<Model> _cylinderModel;
     std::unique_ptr<Model> _turret;
-
+    std::unique_ptr<Skybox> _skybox;
     
     // Game parameters
     float _bulletSpeed = 5.0f;

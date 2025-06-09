@@ -19,6 +19,16 @@ Scene::Scene(const Options& options) : Application(options) {
 
     initShader();
     initGameObjects();
+
+    //skybox
+    const std::vector<std::string> skyboxTextureRelPaths = {
+        "texture/skybox/Right_Tex.jpg", "texture/skybox/Left_Tex.jpg",  "texture/skybox/Up_Tex.jpg",
+        "texture/skybox/Down_Tex.jpg",  "texture/skybox/Front_Tex.jpg", "texture/skybox/Back_Tex.jpg"};
+    std::vector<std::string> skyboxTextureFullPaths;
+    for(size_t i = 0; i < skyboxTextureRelPaths.size(); i++) {
+        skyboxTextureFullPaths.push_back(getAssetFullPath(skyboxTextureRelPaths[i]));
+    }
+    _skybox.reset(new Skybox(skyboxTextureFullPaths));
 }
 
 void Scene::initShader() {
@@ -191,9 +201,7 @@ void Scene::updateCamera() {
 void Scene::renderFrame() {
     showFpsInWindowTitle();
     
-    if (_gameState == GameState::Playing) {
-        updateGame();
-    }
+    
 
     glClearColor(0.1f, 0.1f, 0.15f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -212,6 +220,9 @@ void Scene::renderFrame() {
     renderPlayer();
     renderBullets();
     renderLaunchers();
+
+    _skybox->draw();
+    
 }
 
 void Scene::updateGame() {
@@ -317,6 +328,7 @@ void Scene::renderPlayer() {
     if (_sphereModel) {
         _sphereModel->draw();
     }
+
 }
 
 void Scene::renderBullets() {
