@@ -7,6 +7,7 @@
 #include "../base/camera.h"
 #include "../base/glsl_program.h"
 #include "../base/model.h"
+#include "../base/skybox.h"
 
 class Scene : public Application {
 public:
@@ -23,6 +24,8 @@ private:
     std::unique_ptr<Model> _turret;
 
     std::unique_ptr<GLSLProgram> _shader;
+
+    std::unique_ptr<SkyBox> _skybox;
 
     void initShader();
 };

@@ -1,7 +1,9 @@
 #include "scene.h"
 
 const std::string modelRelPath = "obj/turret.obj";
-
+const std::vector<std::string> skyboxTextureRelPaths = {
+    "texture/skybox/Right_Tex.jpg", "texture/skybox/Left_Tex.jpg",  "texture/skybox/Up_Tex.jpg",
+    "texture/skybox/Down_Tex.jpg",  "texture/skybox/Front_Tex.jpg", "texture/skybox/Back_Tex.jpg"};
 Scene::Scene(const Options& options) : Application(options) {
     // set input mode
     glfwSetInputMode(_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -26,6 +28,13 @@ Scene::Scene(const Options& options) : Application(options) {
     _turret->transform.scale = glm::vec3(1.5f, 1.5f, 1.5f);
     // init shader
     initShader();
+
+    // init skybox
+    std::vector<std::string> skyboxTextureFullPaths;
+    for (size_t i = 0; i < skyboxTextureRelPaths.size(); ++i) {
+        skyboxTextureFullPaths.push_back(getAssetFullPath(skyboxTextureRelPaths[i]));
+    }
+    _skybox.reset(new SkyBox(skyboxTextureFullPaths));
 }
 
 void Scene::handleInput() {
@@ -126,6 +135,7 @@ void Scene::renderFrame() {
     _shader->setUniformMat4("model", _turret->transform.getLocalMatrix());
 
     _turret->draw();
+    _skybox->draw(projection, view);
 }
 
 void Scene::initShader() {
