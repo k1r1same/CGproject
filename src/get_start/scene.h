@@ -9,6 +9,7 @@
 #include "../base/glsl_program.h"
 #include "../base/model.h"
 #include "../base/skybox.h"
+#include "../base/texture2d.h"
 
 enum class GameState {
     Playing,
@@ -67,11 +68,15 @@ private:
     
     // Rendering
     std::unique_ptr<GLSLProgram> _shader;
+    std::unique_ptr<GLSLProgram> _texshader;
     std::unique_ptr<Model> _sphereModel;
     std::unique_ptr<Model> _cylinderModel;
     std::unique_ptr<Model> _turretModel;
     std::unique_ptr<SkyBox> _skybox;
     
+    // Texture
+    std::shared_ptr<Texture2D> _turrettex;
+
     // Game parameters
     float _bulletSpeed = 5.0f;
     int _initialLaunchers = 2;
@@ -80,7 +85,9 @@ private:
     
     // Methods
     void initShader();
+    void initTexShader();
     void initGameObjects();
+    void initTex();
     void updateGame();
     void updatePlayer();
     void updateBullets();
