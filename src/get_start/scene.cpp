@@ -23,6 +23,7 @@ Scene::Scene(const Options& options) : Application(options) {
     glm::mat4 rotateX = glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(1, 0, 0));
     glm::mat4 rotateY = glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(0, 1, 0));
     _turret->transform.rotation = rotateY * rotateX;
+    _turret->transform.scale = glm::vec3(1.5f, 1.5f, 1.5f);
     // init shader
     initShader();
 }
