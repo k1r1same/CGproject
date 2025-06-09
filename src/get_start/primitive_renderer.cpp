@@ -1,7 +1,7 @@
 #include "primitive_renderer.h"
 #include <iostream>
 #include <cmath>
-#include <glad/glad.h>
+#include <glad/gl.h>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -308,14 +308,14 @@ bool MathUtils::rayTriangleIntersection(const glm::vec3& rayOrigin, const glm::v
     return t > EPSILON;
 }
 
-glm::vec3 MathUtils::screenToWorld(const glm::vec2& screenPos, const glm::mat4& view, 
-                                  const glm::mat4& projection, const glm::vec4& viewport) {
-    glm::vec3 worldPos = glm::unProject(
-        glm::vec3(screenPos.x, viewport.w - screenPos.y, 0.5f),
-        view, projection, viewport
-    );
-    return worldPos;
-}
+//glm::vec3 MathUtils::screenToWorld(const glm::vec2& screenPos, const glm::mat4& view, 
+//                                  const glm::mat4& projection, const glm::vec4& viewport) {
+//    glm::vec3 worldPos = glm::unProject(
+//        glm::vec3(screenPos.x, viewport.w - screenPos.y, 0.5f),
+//        view, projection, viewport
+//    );
+//    return worldPos;
+//}
 
 float MathUtils::smoothstep(float edge0, float edge1, float x) {
     float t = std::max(0.0f, std::min(1.0f, (x - edge0) / (edge1 - edge0)));
