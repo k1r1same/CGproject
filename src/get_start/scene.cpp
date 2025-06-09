@@ -483,11 +483,8 @@ void Scene::renderLaunchers() {
 		glm::mat4 model = glm::mat4(1.0f);
 		model = glm::translate(model, launcher.position);
 		model = glm::scale(model, glm::vec3(1.0f, 1.0f, 0.8f));
-
-		_shader->setUniformMat4("model", model);
-		_shader->setUniformVec3("objectColor", glm::vec3(0.6f, 0.3f, 0.8f));
+		 _texshader->use();
     if (_turretModel) {
-      _texshader->use();
       _texshader->setUniformMat4("model", model);
       _turrettex->bind();
 	    _turretModel->draw();
