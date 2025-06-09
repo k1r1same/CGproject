@@ -100,6 +100,22 @@ void Scene::renderInspectorPanel() {
 		ImGui::TextColored(ImVec4(0, 1, 0, 1), "CurrentWave: %d", _currentWave);
 		ImGui::TextColored(ImVec4(0, 0, 1, 1), "WaveTimer: %.2f", _waveTimer);
 	}
+	if (ImGui::CollapsingHeader("Controls", ImGuiTreeNodeFlags_DefaultOpen)) {
+		if (_gameState == GameState::WaitingToStart) {
+			if (_cameraControlMode) {
+				ImGui::TextColored(ImVec4(0, 1, 1, 1), "Mode: Camera Control");
+				ImGui::TextColored(ImVec4(1, 1, 1, 1), "Press TAB to switch to UI mode");
+			} else {
+				ImGui::TextColored(ImVec4(1, 1, 0, 1), "Mode: UI Interaction");
+				ImGui::TextColored(ImVec4(1, 1, 1, 1), "Press TAB to switch to camera mode");
+			}
+		}
+		ImGui::TextColored(ImVec4(1, 1, 1, 1), "WASD/Arrow Keys: Move player");
+		ImGui::TextColored(ImVec4(1, 1, 1, 1), "Mouse: Look around");
+		ImGui::TextColored(ImVec4(1, 1, 1, 1), "Left Click: Destroy bullets");
+		ImGui::TextColored(ImVec4(1, 1, 1, 1), "Enter: Start game");
+		ImGui::TextColored(ImVec4(1, 1, 1, 1), "R: Reset game");
+	}
 
 	ImGui::End();
 }
@@ -251,6 +267,16 @@ void Scene::handleInput() {
 	}
 
 	if (_gameState == GameState::WaitingToStart) {
+		bool currentTabPressed = (_input.keyboard.keyStates[GLFW_KEY_TAB] == GLFW_PRESS);
+		if (currentTabPressed && !_prevTabPressed) {
+			toggleMouseMode();
+		}
+		_prevTabPressed = currentTabPressed;
+		
+		if (!_cameraControlMode) {
+			return;
+		}
+		
 		handleMouseCamera();
 		handleFreeCameraMovement();
 		
@@ -359,22 +385,26 @@ void Scene::renderFrame() {
 	_shader->setUniformVec3("lightPos", glm::vec3(0.0f, 10.0f, 0.0f));
 	_shader->setUniformVec3("lightColor", glm::vec3(1.0f, 1.0f, 1.0f));
 	_shader->setUniformFloat("ambientStrength", 0.3f);
-
+	
 	if (_gameState == GameState::WaitingToStart) {
 		renderPlayer();
 		renderLaunchers();
 		_skybox->draw(projection, view);
-		renderStartScreen();
-		renderUI();
+
+		if (_cameraControlMode) {
+			renderStartScreen();
+		} else {
+			renderUI();
+		}
 	}
 	else {
 		renderPlayer();
 		renderBullets();
 		renderLaunchers();
 		_skybox->draw(projection, view);
+		renderCrosshair();
 	}
 	
-	renderCrosshair();
 }
 
 void Scene::updateGame() {
@@ -554,6 +584,9 @@ void Scene::resetGame() {
 	_freeCameraPos = glm::vec3(0.0f, 5.0f, 15.0f);
 	_firstMouse = true;
 	_prevMouseLeftPressed = false;
+	_prevTabPressed = false;
+	_cameraControlMode = true;
+	glfwSetInputMode(_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 	setupCameraForGameState();
 	setupLaunchers(_initialLaunchers);
 }
@@ -564,6 +597,8 @@ void Scene::startGame() {
 	_waveTimer = 0.0f;
 	
 	_firstMouse = true;
+	_cameraControlMode = true;
+	glfwSetInputMode(_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 	setupCameraForGameState();
 }
 
@@ -699,6 +734,7 @@ void Scene::setupCameraForGameState() {
 }
 
 void Scene::renderCrosshair() {
+	if (!_cameraControlMode) return;
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();
@@ -808,5 +844,18 @@ void Scene::startBulletDestroy(size_t bulletIndex) {
 	if (bulletIndex < _bullets.size()) {
 		_bullets[bulletIndex].destroying = true;
 		_bullets[bulletIndex].destroyTimer = 0.0f;
+	}
+}
+
+void Scene::toggleMouseMode() {
+	_cameraControlMode = !_cameraControlMode;
+	
+	if (_cameraControlMode) {
+		glfwSetInputMode(_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+		_firstMouse = true;
+		std::cout << "Camera control mode enabled" << std::endl;
+	} else {
+		glfwSetInputMode(_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+		std::cout << "UI interaction mode enabled" << std::endl;
 	}
 }

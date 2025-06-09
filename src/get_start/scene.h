@@ -84,6 +84,10 @@ private:
     // Mouse click state tracking
     bool _prevMouseLeftPressed = false;
     
+    // Mouse mode for UI/Camera control
+    bool _cameraControlMode = true;
+    bool _prevTabPressed = false;
+    
     // Game objects
     Player _player;
     std::vector<Bullet> _bullets;
@@ -148,6 +152,7 @@ private:
                            const glm::vec3& sphereCenter, float sphereRadius, float& distance);
     void handleMouseClick();
     void startBulletDestroy(size_t bulletIndex);
+    void toggleMouseMode();
 
     /// <summary>
     /// imgui
