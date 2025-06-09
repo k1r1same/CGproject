@@ -224,7 +224,7 @@ void Scene::initGameObjects() {
 }
 
 void Scene::initTex() {
-  const std::string turretTextureRelPath = "/texture/turret/T_2K__albedo.png";
+  const std::string turretTextureRelPath = "texture/turret/T_2K__albedo.png";
   std::shared_ptr<Texture2D> turretTexture = std::make_shared<ImageTexture2D>(getAssetFullPath(turretTextureRelPath));
   _turrettex = turretTexture;
 }
