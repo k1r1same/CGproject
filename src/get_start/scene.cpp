@@ -28,7 +28,7 @@ Scene::Scene(const Options& options) : Application(options) {
     for(size_t i = 0; i < skyboxTextureRelPaths.size(); i++) {
         skyboxTextureFullPaths.push_back(getAssetFullPath(skyboxTextureRelPaths[i]));
     }
-    _skybox.reset(new Skybox(skyboxTextureFullPaths));
+    _skybox.reset(new SkyBox(skyboxTextureFullPaths));
 }
 
 void Scene::initShader() {
@@ -219,7 +219,7 @@ void Scene::renderFrame() {
     renderBullets();
     renderLaunchers();
 
-    _skybox->draw();
+    _skybox->draw(projection, view);
     
 }
 

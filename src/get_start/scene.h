@@ -70,7 +70,7 @@ private:
     std::unique_ptr<Model> _sphereModel;
     std::unique_ptr<Model> _cylinderModel;
     std::unique_ptr<Model> _turretModel;
-    std::unique_ptr<Skybox> _skybox;
+    std::unique_ptr<SkyBox> _skybox;
     
     // Game parameters
     float _bulletSpeed = 5.0f;
