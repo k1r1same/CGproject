@@ -25,7 +25,9 @@ Scene::Scene(const Options& options) : Application(options) {
 	_lastMouseY = _windowHeight / 2.0f;
 
 	initShader();
+  initTexShader();
 	initGameObjects();
+  initTex();
 
 	//skybox
 	const std::vector<std::string> skyboxTextureRelPaths = {
@@ -161,6 +163,37 @@ void Scene::initShader() {
 	_shader->link();
 }
 
+void Scene::initTexShader(){
+    const char* vsCode =
+      "#version 330 core\n"
+      "layout(location = 0) in vec3 aPosition;\n"
+      "layout(location = 1) in vec3 aNormal;\n"
+      "layout(location = 2) in vec2 aTexCoord;\n"
+      "out vec2 fTexCoord;\n"
+      "uniform mat4 projection;\n"
+      "uniform mat4 view;\n"
+      "uniform mat4 model;\n"
+
+      "void main() {\n"
+      "    fTexCoord = aTexCoord;\n"
+      "    gl_Position = projection * view * model * vec4(aPosition, 1.0f);\n"
+      "}\n";
+
+    const char* fsCode =
+      "#version 330 core\n"
+      "in vec2 fTexCoord;\n"
+      "out vec4 color;\n"
+      "uniform sampler2D mapKd;\n"
+      "void main() {\n"
+      "    color = texture(mapKd, fTexCoord);\n"
+      "}\n";
+
+    _texshader.reset(new GLSLProgram);
+    _texshader->attachVertexShader(vsCode);
+    _texshader->attachFragmentShader(fsCode);
+    _texshader->link();
+}
+
 void Scene::initGameObjects() {
 	try {
 		_sphereModel.reset(new Model(getAssetFullPath("obj/sphere.obj")));
@@ -178,6 +211,7 @@ void Scene::initGameObjects() {
 
 	try {
 		_turretModel.reset(new Model(getAssetFullPath("obj/turret.obj")));
+    _turretModel->transform.scale = glm::vec3(6.0f, 1.5f, 1.5f);
 	}
 	catch (...) {
 		std::cout << "Warning: turret.obj not found, using basic rendering" << std::endl;
@@ -189,6 +223,11 @@ void Scene::initGameObjects() {
 	setupLaunchers(_initialLaunchers);
 }
 
+void Scene::initTex() {
+  const std::string turretTextureRelPath = "/texture/turret/T_2K__albedo.png";
+  std::shared_ptr<Texture2D> turretTexture = std::make_shared<ImageTexture2D>(getAssetFullPath(turretTextureRelPath));
+  _turrettex = turretTexture;
+}
 void Scene::setupLaunchers(int count) {
 	_launchers.clear();
 	for (int i = 0; i < count; ++i) {
@@ -307,6 +346,10 @@ void Scene::renderFrame() {
 
 	glm::mat4 projection = _camera->getProjectionMatrix();
 	glm::mat4 view = _camera->getViewMatrix();
+
+  _texshader->use();
+  _texshader->setUniformMat4("projection", projection);
+  _texshader->setUniformMat4("view", view);
 
 	_shader->use();
 	_shader->setUniformMat4("projection", projection);
@@ -469,14 +512,16 @@ void Scene::renderLaunchers() {
 	for (const auto& launcher : _launchers) {
 		glm::mat4 model = glm::mat4(1.0f);
 		model = glm::translate(model, launcher.position);
-		model = glm::scale(model, glm::vec3(0.5f, 2.0f, 0.5f));
+		model = glm::scale(model, glm::vec3(1.0f, 1.0f, 0.8f));
 
 		_shader->setUniformMat4("model", model);
 		_shader->setUniformVec3("objectColor", glm::vec3(0.6f, 0.3f, 0.8f));
-
-		if (_turretModel) {
-			_turretModel->draw();
-		}
+    if (_turretModel) {
+      _texshader->use();
+      _texshader->setUniformMat4("model", model);
+      _turrettex->bind();
+	    _turretModel->draw();
+	  }
 	}
 }
 
