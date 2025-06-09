@@ -8,7 +8,7 @@ Scene::Scene(const Options& options) : Application(options) {
     _input.mouse.move.xNow = _input.mouse.move.xOld = 0.5f * _windowWidth;
     _input.mouse.move.yNow = _input.mouse.move.yOld = 0.5f * _windowHeight;
     glfwSetCursorPos(_window, _input.mouse.move.xNow, _input.mouse.move.yNow);
-
+    
     // init cameras
     const float aspect = 1.0f * _windowWidth / _windowHeight;
     constexpr float znear = 0.1f;
@@ -19,8 +19,10 @@ Scene::Scene(const Options& options) : Application(options) {
     _camera->transform.position = glm::vec3(0.0f, 0.0f, 15.0f);
 
     // init model
-    _bunny.reset(new Model(getAssetFullPath(modelRelPath)));
-
+    _turret.reset(new Model(getAssetFullPath(modelRelPath)));
+    glm::mat4 rotateX = glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(1, 0, 0));
+    glm::mat4 rotateY = glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(0, 1, 0));
+    _turret->transform.rotation = rotateY * rotateX;
     // init shader
     initShader();
 }
@@ -120,9 +122,9 @@ void Scene::renderFrame() {
     _shader->use();
     _shader->setUniformMat4("projection", projection);
     _shader->setUniformMat4("view", view);
-    _shader->setUniformMat4("model", _bunny->transform.getLocalMatrix());
+    _shader->setUniformMat4("model", _turret->transform.getLocalMatrix());
 
-    _bunny->draw();
+    _turret->draw();
 }
 
 void Scene::initShader() {

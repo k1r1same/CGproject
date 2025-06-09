@@ -20,7 +20,7 @@ public:
 private:
     std::unique_ptr<Camera> _camera;
 
-    std::unique_ptr<Model> _bunny;
+    std::unique_ptr<Model> _turret;
 
     std::unique_ptr<GLSLProgram> _shader;
 
