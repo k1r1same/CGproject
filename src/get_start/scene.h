@@ -9,6 +9,7 @@
 #include "../base/model.h"
 #include "../base/skybox.h"
 
+
 class Scene : public Application {
 public:
     Scene(const Options& options);
@@ -19,7 +20,7 @@ public:
     void renderFrame() override;
 
 private:
-    std::unique_ptr<Camera> _camera;
+    std::unique_ptr<PerspectiveCamera> _camera;
 
     std::unique_ptr<Model> _turret;
 

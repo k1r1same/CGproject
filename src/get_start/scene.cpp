@@ -35,6 +35,7 @@ Scene::Scene(const Options& options) : Application(options) {
         skyboxTextureFullPaths.push_back(getAssetFullPath(skyboxTextureRelPaths[i]));
     }
     _skybox.reset(new SkyBox(skyboxTextureFullPaths));
+    
 }
 
 void Scene::handleInput() {
@@ -136,6 +137,7 @@ void Scene::renderFrame() {
 
     _turret->draw();
     _skybox->draw(projection, view);
+    
 }
 
 void Scene::initShader() {
