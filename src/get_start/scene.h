@@ -31,6 +31,9 @@ struct Bullet {
     glm::vec3 color{1.0f, 1.0f, 1.0f};
     float radius = 0.2f;
     bool active = true;
+    bool destroying = false;
+    float destroyTimer = 0.0f;
+    float destroyDuration = 0.5f;
     std::unique_ptr<Model> model;
 };
 
@@ -84,6 +87,13 @@ private:
     float _cameraMoveSpeed = 10.0f;
     glm::vec3 _freeCameraPos = glm::vec3(0.0f, 5.0f, 15.0f);
     
+    // Mouse click state tracking
+    bool _prevMouseLeftPressed = false;
+    
+    // Mouse mode for UI/Camera control
+    bool _cameraControlMode = true;
+    bool _prevTabPressed = false;
+    
     // Game objects
     Player _player;
     std::vector<Bullet> _bullets;
@@ -103,7 +113,7 @@ private:
     std::shared_ptr<Texture2D> _turrettex;
 
     // Game parameters
-    float _bulletSpeed = 5.0f;
+    float _bulletSpeed = 2.0f;
     int _initialLaunchers = 2;
     int _launchersPerWave = 2;
     float _launcherRadius = 8.0f;
@@ -144,6 +154,14 @@ private:
     void handleMouseCamera();
     void handleFreeCameraMovement();
     void setupCameraForGameState();
+    
+    // Ray casting for mouse clicks
+    glm::vec3 screenToWorldRay(float mouseX, float mouseY);
+    bool rayIntersectsSphere(const glm::vec3& rayOrigin, const glm::vec3& rayDirection, 
+                           const glm::vec3& sphereCenter, float sphereRadius, float& distance);
+    void handleMouseClick();
+    void startBulletDestroy(size_t bulletIndex);
+    void toggleMouseMode();
 
     /// <summary>
     /// imgui
