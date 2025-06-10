@@ -571,10 +571,24 @@ void Scene::renderBullets() {
 
 void Scene::renderLaunchers() {
 	for (const auto& launcher : _launchers) {
-		glm::mat4 model = glm::mat4(1.0f);
-		model = glm::translate(model, launcher.position);
+    glm::vec3 dir = glm::normalize(_player.position - launcher.position);
+    glm::vec3 up = glm::vec3(0, 1, 0);
+    glm::vec3 right = glm::normalize(glm::cross(up, dir));
+    glm::vec3 realUp = glm::cross(dir, right);
+
+    glm::mat4 rotation = glm::mat4(1.0f);
+    rotation[0] = glm::vec4(right, 0.0f);
+    rotation[1] = glm::vec4(realUp, 0.0f);
+    rotation[2] = glm::vec4(dir, 0.0f);
+
+    glm::mat4 model = glm::mat4(1.0f);
+    model = glm::translate(model, launcher.position-glm::vec3(0.0f, 1.2f, 0.0f));
 		model = glm::scale(model, glm::vec3(1.0f, 1.0f, 0.8f));
-		 _texshader->use();
+		model *= rotation;
+    model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1, 0, 0));
+    model = glm::rotate(model, glm::radians(180.0f), glm::vec3(0, 1, 0));
+    
+		_texshader->use();
     if (_turretModel) {
       _texshader->setUniformMat4("model", model);
       _turrettex->bind();
