@@ -39,6 +39,11 @@ Scene::Scene(const Options& options) : Application(options) {
 		skyboxTextureFullPaths.push_back(getAssetFullPath(skyboxTextureRelPaths[i]));
 	}
 	_skybox.reset(new SkyBox(skyboxTextureFullPaths));
+  
+  // 初始化相机初始视角
+  glm::vec3 dir = glm::normalize(glm::vec3(0.0f, 0.0f, 0.0f) - _freeCameraPos);
+  _yaw = glm::degrees(atan2(dir.z, dir.x));
+  _pitch = glm::degrees(asin(dir.y));
 
 	// init imGUI
 	initImGui();
