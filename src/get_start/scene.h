@@ -41,6 +41,12 @@ struct Launcher {
     glm::vec3 targetPosition;
 };
 
+struct Gun {
+    glm::vec3 position{0.4f, -0.2f, -0.6f};
+    glm::vec3 direction{0.0f, 0.0f, -1.0f};
+    glm::vec3 color{1.0f, 1.0f, 1.0f};
+};
+
 class Scene : public Application {
 public:
     Scene(const Options& options);
@@ -82,6 +88,7 @@ private:
     Player _player;
     std::vector<Bullet> _bullets;
     std::vector<Launcher> _launchers;
+    Gun _gun;
     
     // Rendering
     std::unique_ptr<GLSLProgram> _shader;
@@ -89,6 +96,7 @@ private:
     std::unique_ptr<Model> _sphereModel;
     std::unique_ptr<Model> _cylinderModel;
     std::unique_ptr<Model> _turretModel;
+    std::unique_ptr<Model> _gunModel;
     std::unique_ptr<SkyBox> _skybox;
     
     // Texture
@@ -117,6 +125,7 @@ private:
     void renderPlayer();
     void renderBullets();
     void renderLaunchers();
+    void renderGun();
     void renderUI();
     void renderCrosshair();
     void setupLaunchers(int count);

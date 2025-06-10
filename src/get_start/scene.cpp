@@ -217,6 +217,15 @@ void Scene::initGameObjects() {
 		std::cout << "Warning: turret.obj not found, using basic rendering" << std::endl;
 	}
 
+	try {
+		std::cout << "loading: " + getAssetFullPath("obj/gun.obj") << std::endl;
+		_gunModel.reset(new Model(getAssetFullPath("obj/peacemaker.obj")));
+    _gunModel->transform.scale = glm::vec3(1.0f, 1.0f, 1.0f);
+	}
+	catch (...) {
+		std::cout << "Warning: gun.obj not found, using basic rendering" << std::endl;
+	}
+
 	_player.position = glm::vec3(0.0f, 0.0f, 0.0f);
 	_player.health = 3;
 
@@ -347,9 +356,9 @@ void Scene::renderFrame() {
 	glm::mat4 projection = _camera->getProjectionMatrix();
 	glm::mat4 view = _camera->getViewMatrix();
 
-  _texshader->use();
-  _texshader->setUniformMat4("projection", projection);
-  _texshader->setUniformMat4("view", view);
+	_texshader->use();
+	_texshader->setUniformMat4("projection", projection);
+	_texshader->setUniformMat4("view", view);
 
 	_shader->use();
 	_shader->setUniformMat4("projection", projection);
@@ -370,6 +379,7 @@ void Scene::renderFrame() {
 		renderBullets();
 		renderLaunchers();
 		_skybox->draw(projection, view);
+		renderGun();
 		renderUI();
 	}
 	
@@ -520,6 +530,27 @@ void Scene::renderLaunchers() {
 	    _turretModel->draw();
 	  }
 	}
+}
+
+void Scene::renderGun() {
+    glDisable(GL_DEPTH_TEST); 
+
+	_shader->use();
+	glm::mat4 projection = _camera->getProjectionMatrix();
+    glm::mat4 view = glm::mat4(1.0f);
+
+    glm::mat4 model = glm::mat4(1.0f);
+    model = glm::translate(model, _gun.position);
+    model = glm::scale(model, glm::vec3(2.5f));
+
+    _shader->setUniformMat4("view", view);
+    _shader->setUniformMat4("model", model);
+	_shader->setUniformVec3("objectColor", _gun.color);
+
+    if (_gunModel) {
+        _gunModel->draw();
+    }
+    glEnable(GL_DEPTH_TEST);
 }
 
 void Scene::resetGame() {
