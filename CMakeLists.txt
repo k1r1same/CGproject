@@ -35,7 +35,7 @@ endif()
 
 # copy media data to the build directory
 file(COPY "media/" DESTINATION "media")
-
+file(COPY "screenshots/" DESTINATION "screenshots")
 # add libraries
 if(EMSCRIPTEN)
     message(STATUS "use GLFW in Emscripten")

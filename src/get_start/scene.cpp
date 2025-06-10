@@ -274,7 +274,9 @@ void Scene::handleInput() {
 		glfwSetWindowShouldClose(_window, true);
 		return;
 	}
-
+  if (_input.keyboard.keyStates[GLFW_KEY_F2] == GLFW_PRESS) {
+			saveScreenshot();
+	}
 	if (_gameState == GameState::WaitingToStart) {
 		bool currentTabPressed = (_input.keyboard.keyStates[GLFW_KEY_TAB] == GLFW_PRESS);
 		if (currentTabPressed && !_prevTabPressed) {
@@ -302,10 +304,6 @@ void Scene::handleInput() {
 			handleMouseClick();
 		}
 		_prevMouseLeftPressed = currentMouseLeftPressed;
-
-		if (_input.keyboard.keyStates[GLFW_KEY_F12] == GLFW_PRESS) {
-			saveScreenshot();
-		}
 
 		if (_input.keyboard.keyStates[GLFW_KEY_R] == GLFW_PRESS) {
 			resetGame();
@@ -670,7 +668,29 @@ void Scene::renderStartScreen() {
 }
 
 void Scene::saveScreenshot() {
-	std::cout << "Screenshot saved (feature to be implemented)" << std::endl;
+	int width = _windowWidth;
+  int height = _windowHeight;
+  std::vector<unsigned char> pixels(width * height * 3);
+  glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, pixels.data());
+  // 垂直翻转图像
+  for (int y = 0; y < height / 2; ++y) {
+    for (int x = 0; x < width * 3; ++x) {
+      std::swap(pixels[y * width * 3 + x], pixels[(height - 1 - y) * width * 3 + x]);
+    }
+  }
+  // 生成文件名，带时间戳
+  auto now = std::chrono::system_clock::now();
+  auto now_c = std::chrono::system_clock::to_time_t(now);
+  std::tm* tm = std::localtime(&now_c);
+  char filename[128];
+  std::strftime(filename, sizeof(filename), "../../screenshots/screenshot_%Y%m%d_%H%M%S.png", tm);
+  // 写入文件
+  if (stbi_write_png(filename, width, height, 3, pixels.data(), width * 3)) {
+    std::cout << "Screenshot saved to " << filename << std::endl;
+  } 
+  else {
+    std::cerr << "Failed to save screenshot" << std::endl;
+  }
 }
 
 void Scene::handleMouseCamera() {
