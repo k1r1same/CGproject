@@ -412,7 +412,7 @@ void Scene::renderFrame() {
 		renderLaunchers();
 		_skybox->draw(projection, view);
 		renderGun();
-		renderUI();
+		renderCrosshair();
 	}
 	
 }
