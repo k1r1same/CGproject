@@ -811,17 +811,26 @@ void Scene::updateLaunchers() {
 void Scene::updateGun() {
     static float recoilTimer = 0.0f;
     static const float recoilDuration = 0.1f;
-    static const float recoilDistance = 0.1f;
+    static const float recoilDistance = 0.2f;
+	static const float maxPitchAngle = glm::radians(25.0f);
 
     if (_isRecoiling) {
         recoilTimer += _deltaTime;
         float t = recoilTimer / recoilDuration;
 
+		float angle;
         if (t < 0.5f) {
             _gun.position.z = -0.75f + recoilDistance * (t / 0.5f);
+			angle = maxPitchAngle * (t / 0.5f);
+			 glm::mat4 pitchMatrix = glm::rotate(glm::mat4(1.0f), angle, glm::vec3(1, 0, 0));
+			_gun.direction = glm::vec3(pitchMatrix * glm::vec4(0.0f, 0.0f, -1.0f, 0.0f));
         } else if (t < 1.0f) {
+			angle = maxPitchAngle * (1.0f - t) / 0.5f;
             _gun.position.z = -0.75f + recoilDistance * (1.0f - t) / 0.5f;
+			 glm::mat4 pitchMatrix = glm::rotate(glm::mat4(1.0f), angle, glm::vec3(1, 0, 0));
+			_gun.direction = glm::vec3(pitchMatrix * glm::vec4(0.0f, 0.0f, -1.0f, 0.0f));
         } else {
+			_gun.direction = glm::vec3(0.0f, 0.0f, -1.0f);
             _gun.position.z = -0.75f;
             _isRecoiling = false;
             recoilTimer = 0.0f;
@@ -1012,8 +1021,21 @@ void Scene::renderGun() {
 	glm::mat4 projection = _camera->getProjectionMatrix();
     glm::mat4 view = glm::mat4(1.0f);
 
+	glm::vec3 defaultDir(0.0f, 0.0f, -1.0f);
+	glm::vec3 gunDir = glm::normalize(_gun.direction);
+
+    glm::vec3 rotationAxis = glm::cross(defaultDir, gunDir);
+    float dot = glm::dot(defaultDir, gunDir);
+    float rotationAngle = acos(dot);
+
+    glm::mat4 rotation = glm::mat4(1.0f);
+    if (glm::length(rotationAxis) > 0.0001f) {
+        rotation = glm::rotate(glm::mat4(1.0f), rotationAngle, glm::normalize(rotationAxis));
+    }
+
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::translate(model, _gun.position);
+	model = model * rotation;
     model = glm::scale(model, glm::vec3(2.5f));
 
     if (_gunModel) {
