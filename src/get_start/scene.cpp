@@ -795,7 +795,7 @@ void Scene::checkCollisions() {
 	for (const auto& bullet : _bullets) {
 		if (!bullet.active) continue;
 
-		if (isPlayerHit(bullet)) {
+		if (!bullet.destroying && isPlayerHit(bullet)) {
 			takeDamage();
 			break;
 		}
