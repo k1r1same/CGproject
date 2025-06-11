@@ -65,6 +65,9 @@ set_target_properties(imgui PROPERTIES FOLDER "lib")
 add_subdirectory(./external/stb)
 set_target_properties(stb PROPERTIES FOLDER "lib")
 
+add_subdirectory(./external/freetype)
+set_target_properties(freetype PROPERTIES FOLDER "lib")
+
 set(TINYGLTF_BUILD_LOADER_EXAMPLE OFF CACHE INTERNAL "" FORCE)
 set(TINYGLTF_HEADER_ONLY OFF CACHE INTERNAL "" FORCE)
 set(TINYGLTF_INSTALL OFF CACHE INTERNAL "" FORCE)
