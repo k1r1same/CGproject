@@ -14,6 +14,7 @@
 enum class GameState {
     WaitingToStart,
     Playing,
+    WaveBreak,
     GameOver
 };
 
@@ -65,6 +66,8 @@ private:
     int _currentWave = 1;
     float _waveTime = 30.0f;
     float _waveTimer = 0.0f;
+    float _breakTime = 5.0f;
+    float _breakTimer = 0.0f;
     
     // UI effects
     float _blinkTimer = 0.0f;
@@ -117,6 +120,8 @@ private:
     int _initialLaunchers = 2;
     int _launchersPerWave = 2;
     float _launcherRadius = 8.0f;
+    float _fireInterval = 1.0f;
+    float _waveBreakTime = 5.0f;
     
     // Methods
     void initShader();
@@ -139,6 +144,7 @@ private:
     void renderUI();
     void renderGameUI();
     void renderCrosshair();
+    void renderWaveBreakUI();
     void setupLaunchers(int count);
     void resetGame();
     void startGame();

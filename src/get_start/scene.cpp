@@ -89,15 +89,18 @@ void Scene::renderInspectorPanel() {
 	if (ImGui::CollapsingHeader("Params", ImGuiTreeNodeFlags_DefaultOpen)) {
 		ImGui::SliderFloat("BulletSpeed", &_bulletSpeed, 0.5f, 10.0f);
 		ImGui::SliderFloat("LauncherRadius", &_launcherRadius, 4.0f, 12.0f);
+		ImGui::SliderFloat("FireInterval", &_fireInterval, 0.2f, 5.0f);
 		ImGui::InputInt("InitialLaunchers", &_initialLaunchers);
 		ImGui::InputInt("LaunchersPerWave", &_launchersPerWave);
 		ImGui::SliderFloat("WaveTime", &_waveTime, 10.0f, 100.0f);
+		ImGui::SliderFloat("WaveBreakTime", &_waveBreakTime, 1.0f, 15.0f);
 	}
 	if (ImGui::CollapsingHeader("States", ImGuiTreeNodeFlags_DefaultOpen)) {
 		std::string gameStateStr;
 		switch (_gameState) {
 			case GameState::WaitingToStart: gameStateStr = "WaitingToStart"; break;
 			case GameState::Playing: gameStateStr = "Playing"; break;
+			case GameState::WaveBreak: gameStateStr = "WaveBreak"; break;
 			case GameState::GameOver: gameStateStr = "GameOver"; break;
 		}
 		ImGui::TextColored(ImVec4(1, 1, 0, 1), std::string("GameState:").append(gameStateStr).c_str());
@@ -223,6 +226,44 @@ void Scene::renderGameUI() {
 		ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), "Press R to restart");
 		ImGui::End();
 	}
+	
+	ImGui::Render();
+	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+}
+
+void Scene::renderWaveBreakUI() {
+	ImGui_ImplOpenGL3_NewFrame();
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
+	
+	ImGuiIO& io = ImGui::GetIO();
+	
+	// 休息提示
+	ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f - 200, io.DisplaySize.y * 0.5f - 100));
+	ImGui::SetNextWindowBgAlpha(0.9f);
+	ImGui::Begin("WaveBreak", nullptr, 
+		ImGuiWindowFlags_NoTitleBar | 
+		ImGuiWindowFlags_NoResize | 
+		ImGuiWindowFlags_NoMove | 
+		ImGuiWindowFlags_NoScrollbar | 
+		ImGuiWindowFlags_NoCollapse |
+		ImGuiWindowFlags_AlwaysAutoResize);
+	
+	ImGui::SetWindowFontScale(2.5f);
+	ImGui::TextColored(ImVec4(0.0f, 1.0f, 1.0f, 1.0f), "Wave %d Complete!", _currentWave);
+	
+	ImGui::SetWindowFontScale(1.8f);
+	ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Preparing Wave %d...", _currentWave + 1);
+	
+	float timeRemaining = _breakTime - _breakTimer;
+	ImGui::SetWindowFontScale(2.0f);
+	if (timeRemaining <= 3.0f) {
+		ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "%.1f", timeRemaining);
+	} else {
+		ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "%.1f", timeRemaining);
+	}
+	
+	ImGui::End();
 	
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -354,6 +395,7 @@ void Scene::initTex() {
 void Scene::setupLaunchers(int count) {
 	//std::cout << "Setting up " << count << " launchers" << std::endl;
 	_launchers.clear();
+	
 	for (int i = 0; i < count; ++i) {
 		Launcher launcher;
 		float angle = (2.0f * M_PI * i) / count;
@@ -363,6 +405,12 @@ void Scene::setupLaunchers(int count) {
 			_launcherRadius * sin(angle)
 		);
 		launcher.targetPosition = _player.position;
+		launcher.fireInterval = _fireInterval; 
+		
+		// 错开发射，但保持相同的发射频率
+		float timeOffset = (_fireInterval * i) / count;
+		launcher.lastFireTime = _gameTime - _fireInterval + timeOffset;
+		
 		_launchers.push_back(launcher);
 	}
 }
@@ -403,6 +451,14 @@ void Scene::handleInput() {
 		}
 		_prevMouseLeftPressed = currentMouseLeftPressed;
 
+		if (_input.keyboard.keyStates[GLFW_KEY_R] == GLFW_PRESS) {
+			resetGame();
+		}
+	}
+	else if (_gameState == GameState::WaveBreak) {
+		// 休息期间允许相机控制
+		handleMouseCamera();
+		
 		if (_input.keyboard.keyStates[GLFW_KEY_R] == GLFW_PRESS) {
 			resetGame();
 		}
@@ -511,6 +567,14 @@ void Scene::renderFrame() {
 		renderGameUI();
 		renderCrosshair();
 	}
+	else if (_gameState == GameState::WaveBreak) {
+		renderPlayer();
+		renderBullets(); // 渲染剩余子弹
+		renderLaunchers();
+		_skybox->draw(projection, view);
+		renderGun();
+		renderWaveBreakUI();
+	}
 	else if (_gameState == GameState::GameOver) {
 		renderPlayer();
 		renderBullets();
@@ -524,19 +588,31 @@ void Scene::renderFrame() {
 
 void Scene::updateGame() {
 	if(_gameState == GameState::Playing) {
-	_gameTime += _deltaTime;
-	}
-	if (_gameState == GameState::WaitingToStart) {
-		updateWaitingState();
-		return;
-	}
-	
-	_waveTimer += _deltaTime;
+		_gameTime += _deltaTime;
+		_waveTimer += _deltaTime;
 
-	updateBullets();
-	updateLaunchers();
-	checkCollisions();
-	handleWaveTransition();
+		updateBullets();
+		updateLaunchers();
+		checkCollisions();
+		handleWaveTransition();
+	}
+	else if (_gameState == GameState::WaitingToStart) {
+		updateWaitingState();
+	}
+	else if (_gameState == GameState::WaveBreak) {
+		_breakTimer += _deltaTime;
+		updateBullets(); 
+		
+		// 休息时间结束后开始下一波
+		if (_breakTimer >= _breakTime) {
+			_currentWave++;
+			_waveTimer = 0.0f;
+			_gameState = GameState::Playing;
+			
+			int newLauncherCount = _initialLaunchers + (_currentWave - 1) * _launchersPerWave;
+			setupLaunchers(newLauncherCount);
+		}
+	}
 }
 
 void Scene::updateBullets() {
@@ -564,6 +640,8 @@ void Scene::updateBullets() {
 
 void Scene::updateLaunchers() {
 	for (auto& launcher : _launchers) {
+		// 动态更新发射间隔
+		launcher.fireInterval = _fireInterval;
 		
 		if (_gameTime - launcher.lastFireTime >= launcher.fireInterval) {
 			launcher.targetPosition = _player.position;
@@ -612,17 +690,28 @@ void Scene::takeDamage() {
 		_gameState = GameState::GameOver;
 	}
 
-	_bullets.clear();
+	// 让所有活跃子弹开始销毁动画，而不是直接清空
+	for (auto& bullet : _bullets) {
+		if (bullet.active && !bullet.destroying) {
+			bullet.destroying = true;
+			bullet.destroyTimer = 0.0f;
+		}
+	}
 }
 
 void Scene::handleWaveTransition() {
 	if (_waveTimer >= _waveTime) {
-		_currentWave++;
-		_waveTimer = 0.0f;
-		_bullets.clear();
-
-		int newLauncherCount = _initialLaunchers + (_currentWave - 1) * _launchersPerWave;
-		setupLaunchers(newLauncherCount);
+		_gameState = GameState::WaveBreak;
+		_breakTimer = 0.0f;
+		_breakTime = _waveBreakTime; 
+		
+		// 让所有活跃子弹开始销毁动画，而不是直接清空
+		for (auto& bullet : _bullets) {
+			if (bullet.active && !bullet.destroying) {
+				bullet.destroying = true;
+				bullet.destroyTimer = 0.0f;
+			}
+		}
 	}
 }
 
@@ -633,7 +722,7 @@ void Scene::renderPlayer() {
 
 	_shader->setUniformMat4("model", model);
 
-	if (_gameState == GameState::Playing) {
+	if (_gameState == GameState::Playing || _gameState == GameState::WaveBreak) {
 		_shader->setUniformVec3("objectColor", glm::vec3(0.2f, 0.8f, 0.2f));
 	}
 	else {
@@ -727,6 +816,7 @@ void Scene::resetGame() {
 	_gameTime = 0.0f;
 	_currentWave = 1;
 	_waveTimer = 0.0f;
+	_breakTimer = 0.0f;
 	_player.health = 3;
 	_player.position = glm::vec3(0.0f, 0.0f, 0.0f);
 	_bullets.clear();
@@ -851,7 +941,7 @@ void Scene::handleMouseCamera() {
 		_camera->transform.position = _freeCameraPos;
 		_camera->transform.lookAt(_freeCameraPos + front, glm::vec3(0.0f, 1.0f, 0.0f));
 	}
-	else if (_gameState == GameState::Playing) {
+	else if (_gameState == GameState::Playing || _gameState == GameState::WaveBreak) {
 		_camera->transform.position = _player.position + glm::vec3(0.0f, 1.0f, 0.0f);
 		_camera->transform.lookAt(_player.position + glm::vec3(0.0f, 1.0f, 0.0f) + front, glm::vec3(0.0f, 1.0f, 0.0f));
 	}
@@ -898,7 +988,7 @@ void Scene::setupCameraForGameState() {
 			_pitch = 0.0f;
 		}
 	}
-	else if (_gameState == GameState::Playing) {
+	else if (_gameState == GameState::Playing || _gameState == GameState::WaveBreak) {
 		if (_yaw == 0.0f && _pitch == 0.0f) {
 			_yaw = -90.0f;
 			_pitch = 0.0f;
