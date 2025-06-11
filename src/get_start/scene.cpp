@@ -25,11 +25,14 @@ Scene::Scene(const Options& options) : Application(options) {
 	_lastMouseX = _windowWidth / 2.0f;
 	_lastMouseY = _windowHeight / 2.0f;
 
+  _textrenderer.reset(new TextRenderer());
+
 	initShader();
-    initTexShader();
+  initTexShader();
 	initLitTexShader();
+  _textrenderer->initshader();
 	initGameObjects();
-    initTex();
+  initTex();
 
 	//skybox
 	const std::vector<std::string> skyboxTextureRelPaths = {
@@ -230,9 +233,11 @@ void Scene::renderGameUI() {
 		
 		ImGui::SetWindowFontScale(2.0f);
 		ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "GAME OVER");
+    
 		ImGui::SetWindowFontScale(1.4f);
 		ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), "Survived %d waves", _currentWave - 1);
 		ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), "Press R to restart");
+    _textrenderer->renderText("GAME OVER", 800.0f, 540.0f, 1.0f, glm::vec3(1.0f, 0.0f, 0.0f));
 		ImGui::End();
 	}
 	
@@ -1076,7 +1081,7 @@ void Scene::renderStartScreen() {
 	if (_showStartText) {
 		ImGuiIO& io = ImGui::GetIO();
 		ImVec2 textSize = ImGui::CalcTextSize("Press 'Enter' to Start Game");
-		
+    _textrenderer->renderText("Press 'Enter' to Start Game", 680.0f, 540.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
 		ImGui::SetNextWindowPos(ImVec2((io.DisplaySize.x - textSize.x) * 0.5f, io.DisplaySize.y * 0.9f));
 		ImGui::SetNextWindowBgAlpha(0.0f);
 		
@@ -1089,6 +1094,7 @@ void Scene::renderStartScreen() {
 			ImGuiWindowFlags_AlwaysAutoResize);
 		
 		ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), "Press 'Enter' to Start Game");
+    
 		ImGui::End();
 	}
 	

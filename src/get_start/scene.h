@@ -3,6 +3,7 @@
 #include <memory>
 #include <vector>
 #include <chrono>
+#include "text.h"
 
 #include "../base/application.h"
 #include "../base/camera.h"
@@ -10,6 +11,7 @@
 #include "../base/model.h"
 #include "../base/skybox.h"
 #include "../base/texture2d.h"
+
 
 enum class GameState {
     WaitingToStart,
@@ -117,6 +119,9 @@ private:
     // Texture
     std::shared_ptr<Texture2D> _turrettex;
     std::shared_ptr<Texture2D> _guntexbase;
+
+    // Text
+    std::unique_ptr<TextRenderer> _textrenderer;
 
     // Game parameters
     float _bulletSpeed = 2.0f;
