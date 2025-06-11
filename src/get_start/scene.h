@@ -106,6 +106,7 @@ private:
     // Rendering
     std::unique_ptr<GLSLProgram> _shader;
     std::unique_ptr<GLSLProgram> _texshader;
+    std::unique_ptr<GLSLProgram> _litTexShader;  // 带光照的纹理着色器
     std::unique_ptr<Model> _sphereModel;
     std::unique_ptr<Model> _cylinderModel;
     std::unique_ptr<Model> _turretModel;
@@ -134,6 +135,7 @@ private:
     // Methods
     void initShader();
     void initTexShader();
+    void initLitTexShader();  // 初始化带光照的纹理着色器，用于模型的光照
     void initGameObjects();
     void initTex();
     void updateGame();

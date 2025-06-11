@@ -27,6 +27,7 @@ Scene::Scene(const Options& options) : Application(options) {
 
 	initShader();
     initTexShader();
+	initLitTexShader();
 	initGameObjects();
     initTex();
 
@@ -372,6 +373,75 @@ void Scene::initTexShader(){
     _texshader->attachVertexShader(vsCode);
     _texshader->attachFragmentShader(fsCode);
     _texshader->link();
+}
+
+void Scene::initLitTexShader() {
+    const char* vsCode =
+      "#version 330 core\n"
+      "layout(location = 0) in vec3 aPosition;\n"
+      "layout(location = 1) in vec3 aNormal;\n"
+      "layout(location = 2) in vec2 aTexCoord;\n"
+      
+      "out vec3 worldPosition;\n"
+      "out vec3 normal;\n"
+      "out vec2 fTexCoord;\n"
+      
+      "uniform mat4 model;\n"
+      "uniform mat4 view;\n"
+      "uniform mat4 projection;\n"
+
+      "void main() {\n"
+      "    normal = mat3(transpose(inverse(model))) * aNormal;\n"
+      "    worldPosition = vec3(model * vec4(aPosition, 1.0f));\n"
+      "    fTexCoord = aTexCoord;\n"
+      "    gl_Position = projection * view * vec4(worldPosition, 1.0f);\n"
+      "}\n";
+
+    const char* fsCode =
+      "#version 330 core\n"
+      "in vec3 worldPosition;\n"
+      "in vec3 normal;\n"
+      "in vec2 fTexCoord;\n"
+      "out vec4 fragColor;\n"
+      
+      "uniform sampler2D mapKd;\n"
+      "uniform vec3 lightPos;\n"
+      "uniform vec3 lightColor;\n"
+      "uniform vec3 viewPos;\n"
+      "uniform float lightIntensity;\n"
+      "uniform float ambientStrength;\n"
+      "uniform float specularStrength;\n"
+      "uniform float shininess;\n"
+
+      "void main() {\n"
+      "    vec3 normalizedNormal = normalize(normal);\n"
+      "    \n"
+      "    // Sample texture color\n"
+      "    vec3 textureColor = texture(mapKd, fTexCoord).rgb;\n"
+      "    \n"
+      "    // Ambient lighting\n"
+      "    vec3 ambient = ambientStrength * lightColor;\n"
+      "    \n"
+      "    // Diffuse lighting\n"
+      "    vec3 lightDir = normalize(lightPos - worldPosition);\n"
+      "    float diff = max(dot(normalizedNormal, lightDir), 0.0);\n"
+      "    vec3 diffuse = diff * lightColor;\n"
+      "    \n"
+      "    // Specular lighting\n"
+      "    vec3 viewDir = normalize(viewPos - worldPosition);\n"
+      "    vec3 reflectDir = reflect(-lightDir, normalizedNormal);\n"
+      "    float spec = pow(max(dot(viewDir, reflectDir), 0.0), shininess);\n"
+      "    vec3 specular = specularStrength * spec * lightColor;\n"
+      "    \n"
+      "    // Combine results with texture\n"
+      "    vec3 result = (ambient + diffuse + specular) * lightIntensity * textureColor;\n"
+      "    fragColor = vec4(result, 1.0);\n"
+      "}\n";
+
+    _litTexShader.reset(new GLSLProgram);
+    _litTexShader->attachVertexShader(vsCode);
+    _litTexShader->attachFragmentShader(fsCode);
+    _litTexShader->link();
 }
 
 void Scene::initGameObjects() {
@@ -812,30 +882,41 @@ void Scene::renderBullets() {
 }
 
 void Scene::renderLaunchers() {
+	// 使用带光照的纹理着色器
+	_litTexShader->use();
+	_litTexShader->setUniformMat4("projection", _camera->getProjectionMatrix());
+	_litTexShader->setUniformMat4("view", _camera->getViewMatrix());
+	_litTexShader->setUniformVec3("lightPos", _lightPosition);
+	_litTexShader->setUniformVec3("lightColor", _lightColor);
+	_litTexShader->setUniformVec3("viewPos", _camera->transform.position);
+	_litTexShader->setUniformFloat("lightIntensity", _lightIntensity);
+	_litTexShader->setUniformFloat("ambientStrength", _ambientStrength);
+	_litTexShader->setUniformFloat("specularStrength", _specularStrength);
+	_litTexShader->setUniformFloat("shininess", _shininess);
+	
 	for (const auto& launcher : _launchers) {
         glm::vec3 dir = glm::normalize(_player.position - launcher.position);
-    glm::vec3 up = glm::vec3(0, 1, 0);
-    glm::vec3 right = glm::normalize(glm::cross(up, dir));
-    glm::vec3 realUp = glm::cross(dir, right);
+        glm::vec3 up = glm::vec3(0, 1, 0);
+        glm::vec3 right = glm::normalize(glm::cross(up, dir));
+        glm::vec3 realUp = glm::cross(dir, right);
 
-    glm::mat4 rotation = glm::mat4(1.0f);
-    rotation[0] = glm::vec4(right, 0.0f);
-    rotation[1] = glm::vec4(realUp, 0.0f);
-    rotation[2] = glm::vec4(dir, 0.0f);
+        glm::mat4 rotation = glm::mat4(1.0f);
+        rotation[0] = glm::vec4(right, 0.0f);
+        rotation[1] = glm::vec4(realUp, 0.0f);
+        rotation[2] = glm::vec4(dir, 0.0f);
 
-    glm::mat4 model = glm::mat4(1.0f);
-    model = glm::translate(model, launcher.position-glm::vec3(0.0f, 1.2f, 0.0f));
+        glm::mat4 model = glm::mat4(1.0f);
+        model = glm::translate(model, launcher.position-glm::vec3(0.0f, 1.2f, 0.0f));
 		model = glm::scale(model, glm::vec3(1.0f, 1.0f, 0.8f));
 		model *= rotation;
-    model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1, 0, 0));
-    model = glm::rotate(model, glm::radians(180.0f), glm::vec3(0, 1, 0));
+        model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1, 0, 0));
+        model = glm::rotate(model, glm::radians(180.0f), glm::vec3(0, 1, 0));
 		
-		 _texshader->use();
-    if (_turretModel) {
-      _texshader->setUniformMat4("model", model);
-      _turrettex->bind();
-	    _turretModel->draw();
-	  }
+        if (_turretModel) {
+            _litTexShader->setUniformMat4("model", model);
+            _turrettex->bind();
+	        _turretModel->draw();
+	    }
 	}
 }
 
