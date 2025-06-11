@@ -91,6 +91,8 @@ private:
     
     // Mouse click state tracking
     bool _prevMouseLeftPressed = false;
+
+    bool _isRecoiling = false;
     
     // Mouse mode for UI/Camera control
     bool _cameraControlMode = true;

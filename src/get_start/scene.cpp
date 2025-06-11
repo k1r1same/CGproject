@@ -749,6 +749,7 @@ void Scene::updateGame() {
 		updateBullets();
 		updateLaunchers();
 		checkCollisions();
+		updateGun();
 		handleWaveTransition();
 	}
 	else if (_gameState == GameState::WaitingToStart) {
@@ -808,7 +809,24 @@ void Scene::updateLaunchers() {
 }
 
 void Scene::updateGun() {
+    static float recoilTimer = 0.0f;
+    static const float recoilDuration = 0.1f;
+    static const float recoilDistance = 0.1f;
 
+    if (_isRecoiling) {
+        recoilTimer += _deltaTime;
+        float t = recoilTimer / recoilDuration;
+
+        if (t < 0.5f) {
+            _gun.position.z = -0.75f + recoilDistance * (t / 0.5f);
+        } else if (t < 1.0f) {
+            _gun.position.z = -0.75f + recoilDistance * (1.0f - t) / 0.5f;
+        } else {
+            _gun.position.z = -0.75f;
+            _isRecoiling = false;
+            recoilTimer = 0.0f;
+        }
+    }
 }
 
 void Scene::spawnBullet(const Launcher& launcher) {
@@ -1345,6 +1363,8 @@ void Scene::handleMouseClick() {
 	if (closestBulletIndex >= 0) {
 		startBulletDestroy(closestBulletIndex);
 	}
+
+	_isRecoiling = true;
 }
 
 void Scene::startBulletDestroy(size_t bulletIndex) {
