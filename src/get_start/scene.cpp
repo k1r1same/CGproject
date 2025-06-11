@@ -26,9 +26,9 @@ Scene::Scene(const Options& options) : Application(options) {
 	_lastMouseY = _windowHeight / 2.0f;
 
 	initShader();
-  initTexShader();
+    initTexShader();
 	initGameObjects();
-  initTex();
+    initTex();
 
 	//skybox
 	const std::vector<std::string> skyboxTextureRelPaths = {
@@ -39,7 +39,7 @@ Scene::Scene(const Options& options) : Application(options) {
 		skyboxTextureFullPaths.push_back(getAssetFullPath(skyboxTextureRelPaths[i]));
 	}
 	_skybox.reset(new SkyBox(skyboxTextureFullPaths));
-  
+
   // 初始化相机初始视角
   glm::vec3 dir = glm::normalize(glm::vec3(0.0f, 0.0f, 0.0f) - _freeCameraPos);
   _yaw = glm::degrees(atan2(dir.z, dir.x));
@@ -135,6 +135,98 @@ void Scene::renderUI() {
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
+void Scene::renderGameUI() {
+	ImGui_ImplOpenGL3_NewFrame();
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
+	
+	ImGuiIO& io = ImGui::GetIO();
+	
+	// Health display in top-left corner
+	ImGui::SetNextWindowPos(ImVec2(20, 20));
+	ImGui::SetNextWindowBgAlpha(0.8f);
+	ImGui::Begin("Health", nullptr, 
+		ImGuiWindowFlags_NoTitleBar | 
+		ImGuiWindowFlags_NoResize | 
+		ImGuiWindowFlags_NoMove | 
+		ImGuiWindowFlags_NoScrollbar | 
+		ImGuiWindowFlags_NoCollapse |
+		ImGuiWindowFlags_AlwaysAutoResize);
+	
+	ImGui::SetWindowFontScale(1.5f);
+	
+	// Health display
+	ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), "Health: ");
+	ImGui::SameLine();
+	
+	for (int i = 0; i < 3; ++i) {
+		if (i < _player.health) {
+			ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "[#]");
+		} else {
+			ImGui::TextColored(ImVec4(0.3f, 0.3f, 0.3f, 1.0f), "[ ]");
+		}
+		if (i < 2) ImGui::SameLine();
+	}
+	ImGui::End();
+	
+	// Wave info in top-center
+	ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f - 120, 20));
+	ImGui::SetNextWindowBgAlpha(0.8f);
+	ImGui::Begin("Wave", nullptr, 
+		ImGuiWindowFlags_NoTitleBar | 
+		ImGuiWindowFlags_NoResize | 
+		ImGuiWindowFlags_NoMove | 
+		ImGuiWindowFlags_NoScrollbar | 
+		ImGuiWindowFlags_NoCollapse |
+		ImGuiWindowFlags_AlwaysAutoResize);
+	
+	ImGui::SetWindowFontScale(1.8f);
+	ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Wave %d", _currentWave);
+	ImGui::End();
+	
+	// Countdown timer in top-right corner
+	float timeRemaining = _waveTime - _waveTimer;
+	ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - 180, 20));
+	ImGui::SetNextWindowBgAlpha(0.8f);
+	ImGui::Begin("Timer", nullptr, 
+		ImGuiWindowFlags_NoTitleBar | 
+		ImGuiWindowFlags_NoResize | 
+		ImGuiWindowFlags_NoMove | 
+		ImGuiWindowFlags_NoScrollbar | 
+		ImGuiWindowFlags_NoCollapse |
+		ImGuiWindowFlags_AlwaysAutoResize);
+	
+	ImGui::SetWindowFontScale(1.6f);
+	if (timeRemaining <= 10.0f) {
+		ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "%.1fs", timeRemaining);
+	} else {
+		ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "%.1fs", timeRemaining);
+	}
+	ImGui::End();
+	
+	// Game Over screen
+	if (_gameState == GameState::GameOver) {
+		ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f - 200, io.DisplaySize.y * 0.5f - 120));
+		ImGui::SetNextWindowBgAlpha(0.9f);
+		ImGui::Begin("GameOver", nullptr, 
+			ImGuiWindowFlags_NoTitleBar | 
+			ImGuiWindowFlags_NoResize | 
+			ImGuiWindowFlags_NoMove | 
+			ImGuiWindowFlags_NoScrollbar | 
+			ImGuiWindowFlags_NoCollapse |
+			ImGuiWindowFlags_AlwaysAutoResize);
+		
+		ImGui::SetWindowFontScale(2.0f);
+		ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "GAME OVER");
+		ImGui::SetWindowFontScale(1.4f);
+		ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), "Survived %d waves", _currentWave - 1);
+		ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), "Press R to restart");
+		ImGui::End();
+	}
+	
+	ImGui::Render();
+	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+}
 
 Scene::~Scene() {
 	clearImGui();
@@ -260,6 +352,7 @@ void Scene::initTex() {
   _turrettex = turretTexture;
 }
 void Scene::setupLaunchers(int count) {
+	//std::cout << "Setting up " << count << " launchers" << std::endl;
 	_launchers.clear();
 	for (int i = 0; i < count; ++i) {
 		Launcher launcher;
@@ -409,20 +502,30 @@ void Scene::renderFrame() {
 			renderUI();
 		}
 	}
-	else {
+	else if (_gameState == GameState::Playing) {
 		renderPlayer();
 		renderBullets();
 		renderLaunchers();
 		_skybox->draw(projection, view);
 		renderGun();
+		renderGameUI();
 		renderCrosshair();
+	}
+	else if (_gameState == GameState::GameOver) {
+		renderPlayer();
+		renderBullets();
+		renderLaunchers();
+		_skybox->draw(projection, view);
+		renderGun();
+		renderGameUI();
 	}
 	
 }
 
 void Scene::updateGame() {
+	if(_gameState == GameState::Playing) {
 	_gameTime += _deltaTime;
-	
+	}
 	if (_gameState == GameState::WaitingToStart) {
 		updateWaitingState();
 		return;
@@ -461,6 +564,7 @@ void Scene::updateBullets() {
 
 void Scene::updateLaunchers() {
 	for (auto& launcher : _launchers) {
+		
 		if (_gameTime - launcher.lastFireTime >= launcher.fireInterval) {
 			launcher.targetPosition = _player.position;
 			spawnBullet(launcher);
@@ -571,7 +675,7 @@ void Scene::renderBullets() {
 
 void Scene::renderLaunchers() {
 	for (const auto& launcher : _launchers) {
-    glm::vec3 dir = glm::normalize(_player.position - launcher.position);
+        glm::vec3 dir = glm::normalize(_player.position - launcher.position);
     glm::vec3 up = glm::vec3(0, 1, 0);
     glm::vec3 right = glm::normalize(glm::cross(up, dir));
     glm::vec3 realUp = glm::cross(dir, right);
@@ -587,8 +691,8 @@ void Scene::renderLaunchers() {
 		model *= rotation;
     model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1, 0, 0));
     model = glm::rotate(model, glm::radians(180.0f), glm::vec3(0, 1, 0));
-    
-		_texshader->use();
+		
+		 _texshader->use();
     if (_turretModel) {
       _texshader->setUniformMat4("model", model);
       _turrettex->bind();
@@ -648,6 +752,7 @@ void Scene::startGame() {
 	_cameraControlMode = true;
 	glfwSetInputMode(_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 	setupCameraForGameState();
+	setupLaunchers(_initialLaunchers);
 }
 
 void Scene::updateWaitingState() {

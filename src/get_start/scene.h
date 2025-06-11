@@ -137,6 +137,7 @@ private:
     void renderLaunchers();
     void renderGun();
     void renderUI();
+    void renderGameUI();
     void renderCrosshair();
     void setupLaunchers(int count);
     void resetGame();
