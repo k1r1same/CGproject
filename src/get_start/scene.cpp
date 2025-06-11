@@ -27,7 +27,6 @@ Scene::Scene(const Options& options) : Application(options) {
 
 	initShader();
     initTexShader();
-	initGunShader();
 	initLitTexShader();
 	initGameObjects();
     initTex();
@@ -376,58 +375,6 @@ void Scene::initTexShader(){
     _texshader->link();
 }
 
-void Scene::initGunShader() {
-    const char* vsCode =
-		"#version 330 core\n"
-		"layout(location = 0) in vec3 aPosition;\n"
-		"layout(location = 1) in vec3 aNormal;\n"
-		"layout(location = 2) in vec2 aTexCoord;\n"
-		"layout(location = 3) in vec3 aTangent;\n"
-
-		"out vec2 TexCoord;\n"
-		"out vec3 FragPos;\n"
-		"out vec3 Normal;\n"
-		"out vec3 Tangent;\n"
-
-		"uniform mat4 model;\n"
-		"uniform mat4 view;\n"
-		"uniform mat4 projection;\n"
-
-		"void main() {\n"
-		"TexCoord = aTexCoord;\n"
-		"FragPos = vec3(model * vec4(aPosition, 1.0));\n"
-		"Normal = mat3(transpose(inverse(model))) * aNormal;\n"
-		"Tangent = mat3(model) * aTangent;\n"
-		"gl_Position = projection * view * vec4(FragPos, 1.0);\n"
-		"}\n";
-		
-	const char* fsCode =
-		"#version 330 core\n"
-		"in vec2 TexCoord;\n"
-		"out vec4 FragColor;\n"
-
-		"uniform sampler2D baseColorMap;\n"
-		"uniform sampler2D normalMap;\n"
-		"uniform sampler2D ormMap;\n"
-
-		"void main() {\n"
-		"    vec3 baseColor = texture(baseColorMap, TexCoord).rgb;\n"
-		"    vec3 normal = texture(normalMap, TexCoord).rgb;\n"
-		"    normal = normalize(normal * 2.0 - 1.0);\n"
-		"    vec3 orm = texture(ormMap, TexCoord).rgb;\n"
-		"    float ao = orm.r;\n"
-		"    float roughness = orm.g;\n"
-		"    float metallic = orm.b;\n"
-		"    vec3 color = baseColor * ao * mix(1.0, 0.5, roughness) * mix(1.0, 1.5, metallic);\n"
-		"    FragColor = vec4(color, 1.0);\n"
-		"}\n";
-
-	_gunshader.reset(new GLSLProgram);
-    _gunshader->attachVertexShader(vsCode);
-    _gunshader->attachFragmentShader(fsCode);
-    _gunshader->link();
-}
-
 void Scene::initLitTexShader() {
     const char* vsCode =
       "#version 330 core\n"
@@ -521,12 +468,12 @@ void Scene::initGameObjects() {
 	}
 
 	try {
-		std::cout << "loading: " + getAssetFullPath("obj/gun.obj") << std::endl;
+		std::cout << "loading: " + getAssetFullPath("obj/colt_SAA_(OBJ).obj") << std::endl;
 		_gunModel.reset(new Model(getAssetFullPath("obj/colt_SAA_(OBJ).obj")));
     _gunModel->transform.scale = glm::vec3(1.0f, 1.0f, 1.0f);
 	}
 	catch (...) {
-		std::cout << "Warning: gun.obj not found, using basic rendering" << std::endl;
+		std::cout << "Warning: colt_SAA_(OBJ).obj not found, using basic rendering" << std::endl;
 	}
 
 	_player.position = glm::vec3(0.0f, 0.0f, 0.0f);
@@ -538,16 +485,10 @@ void Scene::initGameObjects() {
 void Scene::initTex() {
   const std::string turretTextureRelPath = "texture/turret/T_2K__albedo.png";
   const std::string gunTextureBaseRelPath = "texture/gun/colt_saa_BaseColor.png";
-  const std::string gunTextureNormalRelPath = "texture/gun/colt_saa_Normal_DX.png";
-  const std::string gunTextureORMRelPath = "texture/gun/colt_saa_OcclusionRoughnessMetallic.png";
   std::shared_ptr<Texture2D> gunTextureBase = std::make_shared<ImageTexture2D>(getAssetFullPath(gunTextureBaseRelPath));
-  std::shared_ptr<Texture2D> gunTextureNormal = std::make_shared<ImageTexture2D>(getAssetFullPath(gunTextureNormalRelPath));
-  std::shared_ptr<Texture2D> gunTextureORM = std::make_shared<ImageTexture2D>(getAssetFullPath(gunTextureORMRelPath));
   std::shared_ptr<Texture2D> turretTexture = std::make_shared<ImageTexture2D>(getAssetFullPath(turretTextureRelPath));
   _turrettex = turretTexture;
   _guntexbase = gunTextureBase;
-  _guntexnormal = gunTextureNormal;
-  _guntexorm = gunTextureORM;
 }
 
 void Scene::setupLaunchers(int count) {
@@ -1015,9 +956,15 @@ void Scene::renderLaunchers() {
 }
 
 void Scene::renderGun() {
-    glDisable(GL_DEPTH_TEST); 
-
-	_gunshader->use();
+	_litTexShader->use();
+	_litTexShader->setUniformVec3("lightPos", _lightPosition);
+	_litTexShader->setUniformVec3("lightColor", _lightColor);
+	_litTexShader->setUniformVec3("viewPos", _camera->transform.position);
+	_litTexShader->setUniformFloat("lightIntensity", _lightIntensity);
+	_litTexShader->setUniformFloat("ambientStrength", _ambientStrength);
+	_litTexShader->setUniformFloat("specularStrength", _specularStrength);
+	_litTexShader->setUniformFloat("shininess", _shininess);
+		
 	glm::mat4 projection = _camera->getProjectionMatrix();
     glm::mat4 view = glm::mat4(1.0f);
 
@@ -1039,26 +986,12 @@ void Scene::renderGun() {
     model = glm::scale(model, glm::vec3(2.5f));
 
     if (_gunModel) {
-		_gunshader->setUniformMat4("model", model);
-		_gunshader->setUniformMat4("projection", projection);
-		_gunshader->setUniformMat4("view", view);
-
-		glActiveTexture(GL_TEXTURE0);
+		_litTexShader->setUniformMat4("projection", projection);
+		_litTexShader->setUniformMat4("view", view);
+		_litTexShader->setUniformMat4("model", model);
 		_guntexbase->bind(0);
-
-		glActiveTexture(GL_TEXTURE1);
-		_guntexnormal->bind(1);
-
-		glActiveTexture(GL_TEXTURE2);
-		_guntexorm->bind(2);
-
-		_gunshader->setUniformInt("baseColorMap", 0);
-		_gunshader->setUniformInt("normalMap", 1);
-		_gunshader->setUniformInt("ormMap", 2);
-
         _gunModel->draw();
     }
-    glEnable(GL_DEPTH_TEST);
 }
 
 void Scene::renderLightIndicator() {

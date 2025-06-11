@@ -107,7 +107,6 @@ private:
     // Rendering
     std::unique_ptr<GLSLProgram> _shader;
     std::unique_ptr<GLSLProgram> _texshader;
-    std::unique_ptr<GLSLProgram> _gunshader;
     std::unique_ptr<GLSLProgram> _litTexShader;  // 带光照的纹理着色器
     std::unique_ptr<Model> _sphereModel;
     std::unique_ptr<Model> _cylinderModel;
@@ -118,8 +117,6 @@ private:
     // Texture
     std::shared_ptr<Texture2D> _turrettex;
     std::shared_ptr<Texture2D> _guntexbase;
-    std::shared_ptr<Texture2D> _guntexnormal;
-    std::shared_ptr<Texture2D> _guntexorm;
 
     // Game parameters
     float _bulletSpeed = 2.0f;
@@ -140,7 +137,6 @@ private:
     // Methods
     void initShader();
     void initTexShader();
-    void initGunShader();
     void initLitTexShader();  // 初始化带光照的纹理着色器，用于模型的光照
     void initGameObjects();
     void initTex();
