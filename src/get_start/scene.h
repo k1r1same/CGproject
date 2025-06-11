@@ -46,9 +46,8 @@ struct Launcher {
 };
 
 struct Gun {
-    glm::vec3 position{0.4f, -0.2f, -0.6f};
+    glm::vec3 position{0.5f, -0.35f, -0.75f};
     glm::vec3 direction{0.0f, 0.0f, -1.0f};
-    glm::vec3 color{1.0f, 1.0f, 1.0f};
 };
 
 class Scene : public Application {
@@ -106,6 +105,7 @@ private:
     // Rendering
     std::unique_ptr<GLSLProgram> _shader;
     std::unique_ptr<GLSLProgram> _texshader;
+    std::unique_ptr<GLSLProgram> _gunshader;
     std::unique_ptr<Model> _sphereModel;
     std::unique_ptr<Model> _cylinderModel;
     std::unique_ptr<Model> _turretModel;
@@ -114,6 +114,9 @@ private:
     
     // Texture
     std::shared_ptr<Texture2D> _turrettex;
+    std::shared_ptr<Texture2D> _guntexbase;
+    std::shared_ptr<Texture2D> _guntexnormal;
+    std::shared_ptr<Texture2D> _guntexorm;
 
     // Game parameters
     float _bulletSpeed = 2.0f;
@@ -134,12 +137,14 @@ private:
     // Methods
     void initShader();
     void initTexShader();
+    void initGunShader();
     void initGameObjects();
     void initTex();
     void updateGame();
     void updatePlayer();
     void updateBullets();
     void updateLaunchers();
+    void updateGun();
     void updateCamera();
     void checkCollisions();
     void handleWaveTransition();
