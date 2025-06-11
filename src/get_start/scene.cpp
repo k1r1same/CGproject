@@ -95,6 +95,14 @@ void Scene::renderInspectorPanel() {
 		ImGui::SliderFloat("WaveTime", &_waveTime, 10.0f, 100.0f);
 		ImGui::SliderFloat("WaveBreakTime", &_waveBreakTime, 1.0f, 15.0f);
 	}
+	if (ImGui::CollapsingHeader("Lighting", ImGuiTreeNodeFlags_DefaultOpen)) {
+		ImGui::SliderFloat3("LightPosition", &_lightPosition.x, -20.0f, 20.0f);
+		ImGui::ColorEdit3("LightColor", &_lightColor.x);
+		ImGui::SliderFloat("LightIntensity", &_lightIntensity, 0.0f, 3.0f);
+		ImGui::SliderFloat("AmbientStrength", &_ambientStrength, 0.0f, 1.0f);
+		ImGui::SliderFloat("SpecularStrength", &_specularStrength, 0.0f, 2.0f);
+		ImGui::SliderFloat("Shininess", &_shininess, 1.0f, 128.0f);
+	}
 	if (ImGui::CollapsingHeader("States", ImGuiTreeNodeFlags_DefaultOpen)) {
 		std::string gameStateStr;
 		switch (_gameState) {
@@ -301,14 +309,31 @@ void Scene::initShader() {
 		"uniform vec3 objectColor;\n"
 		"uniform vec3 lightPos;\n"
 		"uniform vec3 lightColor;\n"
+		"uniform vec3 viewPos;\n"
+		"uniform float lightIntensity;\n"
 		"uniform float ambientStrength;\n"
+		"uniform float specularStrength;\n"
+		"uniform float shininess;\n"
 
 		"void main() {\n"
+		"    vec3 normalizedNormal = normalize(normal);\n"
+		"    \n"
+		"    // Ambient lighting\n"
 		"    vec3 ambient = ambientStrength * lightColor;\n"
+		"    \n"
+		"    // Diffuse lighting\n"
 		"    vec3 lightDir = normalize(lightPos - worldPosition);\n"
-		"    float diff = max(dot(normalize(normal), lightDir), 0.0);\n"
+		"    float diff = max(dot(normalizedNormal, lightDir), 0.0);\n"
 		"    vec3 diffuse = diff * lightColor;\n"
-		"    vec3 result = (ambient + diffuse) * objectColor;\n"
+		"    \n"
+		"    // Specular lighting\n"
+		"    vec3 viewDir = normalize(viewPos - worldPosition);\n"
+		"    vec3 reflectDir = reflect(-lightDir, normalizedNormal);\n"
+		"    float spec = pow(max(dot(viewDir, reflectDir), 0.0), shininess);\n"
+		"    vec3 specular = specularStrength * spec * lightColor;\n"
+		"    \n"
+		"    // Combine results\n"
+		"    vec3 result = (ambient + diffuse + specular) * lightIntensity * objectColor;\n"
 		"    fragColor = vec4(result, 1.0);\n"
 		"}\n";
 
@@ -539,17 +564,11 @@ void Scene::renderFrame() {
 	_texshader->use();
 	_texshader->setUniformMat4("projection", projection);
 	_texshader->setUniformMat4("view", view);
-
-	_shader->use();
-	_shader->setUniformMat4("projection", projection);
-	_shader->setUniformMat4("view", view);
-	_shader->setUniformVec3("lightPos", glm::vec3(0.0f, 10.0f, 0.0f));
-	_shader->setUniformVec3("lightColor", glm::vec3(1.0f, 1.0f, 1.0f));
-	_shader->setUniformFloat("ambientStrength", 0.3f);
 	
 	if (_gameState == GameState::WaitingToStart) {
 		renderPlayer();
 		renderLaunchers();
+		renderLightIndicator();
 		_skybox->draw(projection, view);
 
 		if (_cameraControlMode) {
@@ -562,6 +581,7 @@ void Scene::renderFrame() {
 		renderPlayer();
 		renderBullets();
 		renderLaunchers();
+		renderLightIndicator();
 		_skybox->draw(projection, view);
 		renderGun();
 		renderGameUI();
@@ -571,6 +591,7 @@ void Scene::renderFrame() {
 		renderPlayer();
 		renderBullets(); // 渲染剩余子弹
 		renderLaunchers();
+		renderLightIndicator();
 		_skybox->draw(projection, view);
 		renderGun();
 		renderWaveBreakUI();
@@ -579,6 +600,7 @@ void Scene::renderFrame() {
 		renderPlayer();
 		renderBullets();
 		renderLaunchers();
+		renderLightIndicator();
 		_skybox->draw(projection, view);
 		renderGun();
 		renderGameUI();
@@ -716,26 +738,47 @@ void Scene::handleWaveTransition() {
 }
 
 void Scene::renderPlayer() {
+	_shader->use();
+	_shader->setUniformMat4("projection", _camera->getProjectionMatrix());
+	_shader->setUniformMat4("view", _camera->getViewMatrix());
+	_shader->setUniformVec3("lightPos", _lightPosition);
+	_shader->setUniformVec3("lightColor", _lightColor);
+	_shader->setUniformVec3("viewPos", _camera->transform.position);
+	_shader->setUniformFloat("lightIntensity", _lightIntensity);
+	_shader->setUniformFloat("ambientStrength", _ambientStrength);
+	
 	glm::mat4 model = glm::mat4(1.0f);
 	model = glm::translate(model, _player.position);
 	model = glm::scale(model, glm::vec3(_player.radius));
-
 	_shader->setUniformMat4("model", model);
 
 	if (_gameState == GameState::Playing || _gameState == GameState::WaveBreak) {
 		_shader->setUniformVec3("objectColor", glm::vec3(0.2f, 0.8f, 0.2f));
+		// 玩家使用金属材质
+		_shader->setUniformFloat("specularStrength", 0.8f);
+		_shader->setUniformFloat("shininess", 64.0f);
 	}
 	else {
 		_shader->setUniformVec3("objectColor", glm::vec3(0.8f, 0.2f, 0.2f));
+		_shader->setUniformFloat("specularStrength", 0.3f);
+		_shader->setUniformFloat("shininess", 16.0f);
 	}
 
 	if (_sphereModel) {
 		_sphereModel->draw();
 	}
-
 }
 
 void Scene::renderBullets() {
+	_shader->use();
+	_shader->setUniformMat4("projection", _camera->getProjectionMatrix());
+	_shader->setUniformMat4("view", _camera->getViewMatrix());
+	_shader->setUniformVec3("lightPos", _lightPosition);
+	_shader->setUniformVec3("lightColor", _lightColor);
+	_shader->setUniformVec3("viewPos", _camera->transform.position);
+	_shader->setUniformFloat("lightIntensity", _lightIntensity);
+	_shader->setUniformFloat("ambientStrength", _ambientStrength);
+	
 	for (const auto& bullet : _bullets) {
 		if (!bullet.active) continue;
 
@@ -749,9 +792,15 @@ void Scene::renderBullets() {
 			
 			glm::vec3 destroyColor = glm::mix(bullet.color, glm::vec3(1.0f, 0.0f, 0.0f), progress);
 			_shader->setUniformVec3("objectColor", destroyColor);
+			// 销毁时高亮发光
+			_shader->setUniformFloat("specularStrength", 1.0f + progress);
+			_shader->setUniformFloat("shininess", 128.0f);
 		} else {
 			model = glm::scale(model, glm::vec3(bullet.radius));
 			_shader->setUniformVec3("objectColor", bullet.color);
+			// 子弹有轻微的镜面反射
+			_shader->setUniformFloat("specularStrength", 0.4f);
+			_shader->setUniformFloat("shininess", 32.0f);
 		}
 
 		_shader->setUniformMat4("model", model);
@@ -797,11 +846,20 @@ void Scene::renderGun() {
 	glm::mat4 projection = _camera->getProjectionMatrix();
     glm::mat4 view = glm::mat4(1.0f);
 
+    _shader->setUniformMat4("projection", projection);
+    _shader->setUniformMat4("view", view);
+    _shader->setUniformVec3("lightPos", _lightPosition);
+    _shader->setUniformVec3("lightColor", _lightColor);
+    _shader->setUniformVec3("viewPos", _camera->transform.position);
+    _shader->setUniformFloat("lightIntensity", _lightIntensity);
+    _shader->setUniformFloat("ambientStrength", _ambientStrength);
+    _shader->setUniformFloat("specularStrength", 0.2f);
+    _shader->setUniformFloat("shininess", 8.0f);
+
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::translate(model, _gun.position);
     model = glm::scale(model, glm::vec3(2.5f));
 
-    _shader->setUniformMat4("view", view);
     _shader->setUniformMat4("model", model);
 	_shader->setUniformVec3("objectColor", _gun.color);
 
@@ -809,6 +867,30 @@ void Scene::renderGun() {
         _gunModel->draw();
     }
     glEnable(GL_DEPTH_TEST);
+}
+
+void Scene::renderLightIndicator() {
+    _shader->use();
+    _shader->setUniformMat4("projection", _camera->getProjectionMatrix());
+    _shader->setUniformMat4("view", _camera->getViewMatrix());
+    _shader->setUniformVec3("lightPos", _lightPosition);
+    _shader->setUniformVec3("lightColor", _lightColor);
+    _shader->setUniformVec3("viewPos", _camera->transform.position);
+    _shader->setUniformFloat("lightIntensity", _lightIntensity);
+    _shader->setUniformFloat("ambientStrength", 1.0f); 
+    _shader->setUniformFloat("specularStrength", 0.0f);
+    _shader->setUniformFloat("shininess", 1.0f);
+
+    glm::mat4 model = glm::mat4(1.0f);
+    model = glm::translate(model, _lightPosition);
+    model = glm::scale(model, glm::vec3(0.3f)); // 小球形光源
+
+    _shader->setUniformMat4("model", model);
+    _shader->setUniformVec3("objectColor", _lightColor);
+
+    if (_sphereModel) {
+        _sphereModel->draw();
+    }
 }
 
 void Scene::resetGame() {
@@ -822,6 +904,14 @@ void Scene::resetGame() {
 	_bullets.clear();
 	_blinkTimer = 0.0f;
 	_showStartText = true;
+	
+	// 重置光照参数为默认值
+	_lightPosition = glm::vec3(5.0f, 10.0f, 5.0f);
+	_lightColor = glm::vec3(1.0f, 1.0f, 1.0f);
+	_lightIntensity = 1.0f;
+	_ambientStrength = 0.3f;
+	_specularStrength = 0.5f;
+	_shininess = 32.0f;
 	
 	_freeCameraPos = glm::vec3(0.0f, 5.0f, 15.0f);
 	_firstMouse = true;

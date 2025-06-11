@@ -6,8 +6,8 @@
 Options getOptions(int argc, char* argv[]) {
     Options options;
     options.windowTitle = "必死无疑";
-    options.windowWidth = 1280;
-    options.windowHeight = 720;
+    options.windowWidth = 1920;
+    options.windowHeight = 1080;
     options.windowResizable = false;
     options.vSync = true;
     options.msaa = true;

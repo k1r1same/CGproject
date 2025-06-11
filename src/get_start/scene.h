@@ -123,6 +123,14 @@ private:
     float _fireInterval = 1.0f;
     float _waveBreakTime = 5.0f;
     
+    // Lighting parameters
+    glm::vec3 _lightPosition = glm::vec3(5.0f, 10.0f, 5.0f);
+    glm::vec3 _lightColor = glm::vec3(1.0f, 1.0f, 1.0f);
+    float _lightIntensity = 1.0f;
+    float _ambientStrength = 0.3f;
+    float _specularStrength = 0.5f;
+    float _shininess = 32.0f;
+    
     // Methods
     void initShader();
     void initTexShader();
@@ -141,6 +149,7 @@ private:
     void renderBullets();
     void renderLaunchers();
     void renderGun();
+    void renderLightIndicator();
     void renderUI();
     void renderGameUI();
     void renderCrosshair();
