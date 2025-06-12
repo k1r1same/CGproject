@@ -59,6 +59,14 @@ set_target_properties(glm PROPERTIES FOLDER "lib/glm")
 add_subdirectory(./external/tinyobjloader)
 set_target_properties(tinyobjloader PROPERTIES FOLDER "lib")
 
+# 添加assimp库
+set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(ASSIMP_BUILD_ASSIMP_TOOLS OFF CACHE BOOL "" FORCE)
+set(ASSIMP_BUILD_SAMPLES OFF CACHE BOOL "" FORCE)
+set(ASSIMP_INSTALL OFF CACHE BOOL "" FORCE)
+add_subdirectory(./external/assimp)
+set_target_properties(assimp PROPERTIES FOLDER "lib")
+
 add_subdirectory(./external/imgui)
 set_target_properties(imgui PROPERTIES FOLDER "lib")
 

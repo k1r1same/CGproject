@@ -3,67 +3,33 @@
 #include <limits>
 #include <unordered_map>
 
-#include <tiny_obj_loader.h>
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
 
 #include "model.h"
 
 Model::Model(const std::string& filepath) {
-    tinyobj::attrib_t attrib;
-    std::vector<tinyobj::shape_t> shapes;
-    std::vector<tinyobj::material_t> materials;
-
-    std::string warn, err;
-
-    std::string::size_type index = filepath.find_last_of("/");
-    std::string mtlBaseDir = filepath.substr(0, index + 1);
-
-    if (!tinyobj::LoadObj(
-            &attrib, &shapes, &materials, &warn, &err, filepath.c_str(), mtlBaseDir.c_str())) {
-        throw std::runtime_error("load " + filepath + " failure: " + err);
+    Assimp::Importer importer;
+    
+    // 设置后处理选项
+    const aiScene* scene = importer.ReadFile(filepath, 
+        aiProcess_Triangulate | 
+        aiProcess_FlipUVs | 
+        aiProcess_GenNormals |
+        aiProcess_CalcTangentSpace);
+    
+    if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
+        throw std::runtime_error("Failed to load model: " + std::string(importer.GetErrorString()));
     }
-
-    if (!warn.empty()) {
-        std::cerr << "Loading model " + filepath + " warnings: " << std::endl;
-        std::cerr << warn << std::endl;
-    }
-
-    if (!err.empty()) {
-        throw std::runtime_error("Loading model " + filepath + " error:\n" + err);
-    }
-
+    
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
     std::unordered_map<Vertex, uint32_t> uniqueVertices;
-
-    for (const auto& shape : shapes) {
-        for (const auto& index : shape.mesh.indices) {
-            Vertex vertex{};
-
-            vertex.position.x = attrib.vertices[3 * index.vertex_index + 0];
-            vertex.position.y = attrib.vertices[3 * index.vertex_index + 1];
-            vertex.position.z = attrib.vertices[3 * index.vertex_index + 2];
-
-            if (index.normal_index >= 0) {
-                vertex.normal.x = attrib.normals[3 * index.normal_index + 0];
-                vertex.normal.y = attrib.normals[3 * index.normal_index + 1];
-                vertex.normal.z = attrib.normals[3 * index.normal_index + 2];
-            }
-
-            if (index.texcoord_index >= 0) {
-                vertex.texCoord.x = attrib.texcoords[2 * index.texcoord_index + 0];
-                vertex.texCoord.y = attrib.texcoords[2 * index.texcoord_index + 1];
-            }
-
-            // check if the vertex appeared before to reduce redundant data
-            if (uniqueVertices.count(vertex) == 0) {
-                uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
-                vertices.push_back(vertex);
-            }
-
-            indices.push_back(uniqueVertices[vertex]);
-        }
-    }
-
+    
+    // 处理所有网格
+    processNode(scene->mRootNode, scene, vertices, indices, uniqueVertices);
+    
     _vertices = vertices;
     _indices = indices;
 
@@ -77,6 +43,86 @@ Model::Model(const std::string& filepath) {
     if (error != GL_NO_ERROR) {
         cleanup();
         throw std::runtime_error("OpenGL Error: " + std::to_string(error));
+    }
+}
+
+void Model::processNode(aiNode* node, const aiScene* scene, 
+                       std::vector<Vertex>& vertices, 
+                       std::vector<uint32_t>& indices,
+                       std::unordered_map<Vertex, uint32_t>& uniqueVertices) {
+    // 处理当前节点的所有网格
+    for (unsigned int i = 0; i < node->mNumMeshes; i++) {
+        aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
+        processMesh(mesh, scene, vertices, indices, uniqueVertices);
+    }
+    
+    // 递归处理子节点
+    for (unsigned int i = 0; i < node->mNumChildren; i++) {
+        processNode(node->mChildren[i], scene, vertices, indices, uniqueVertices);
+    }
+}
+
+void Model::processMesh(aiMesh* mesh, const aiScene* scene,
+                       std::vector<Vertex>& vertices, 
+                       std::vector<uint32_t>& indices,
+                       std::unordered_map<Vertex, uint32_t>& uniqueVertices) {
+    // 处理顶点
+    for (unsigned int i = 0; i < mesh->mNumVertices; i++) {
+        Vertex vertex{};
+        
+        // 位置
+        vertex.position.x = mesh->mVertices[i].x;
+        vertex.position.y = mesh->mVertices[i].y;
+        vertex.position.z = mesh->mVertices[i].z;
+        
+        // 法线
+        if (mesh->HasNormals()) {
+            vertex.normal.x = mesh->mNormals[i].x;
+            vertex.normal.y = mesh->mNormals[i].y;
+            vertex.normal.z = mesh->mNormals[i].z;
+        }
+        
+        // 纹理坐标
+        if (mesh->mTextureCoords[0]) {
+            vertex.texCoord.x = mesh->mTextureCoords[0][i].x;
+            vertex.texCoord.y = mesh->mTextureCoords[0][i].y;
+        } else {
+            vertex.texCoord = glm::vec2(0.0f, 0.0f);
+        }
+        
+        // 检查顶点是否已存在以减少冗余数据
+        if (uniqueVertices.count(vertex) == 0) {
+            uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
+            vertices.push_back(vertex);
+        }
+    }
+    
+    // 处理索引
+    for (unsigned int i = 0; i < mesh->mNumFaces; i++) {
+        aiFace face = mesh->mFaces[i];
+        for (unsigned int j = 0; j < face.mNumIndices; j++) {
+            Vertex vertex{};
+            
+            // 获取顶点数据
+            vertex.position.x = mesh->mVertices[face.mIndices[j]].x;
+            vertex.position.y = mesh->mVertices[face.mIndices[j]].y;
+            vertex.position.z = mesh->mVertices[face.mIndices[j]].z;
+            
+            if (mesh->HasNormals()) {
+                vertex.normal.x = mesh->mNormals[face.mIndices[j]].x;
+                vertex.normal.y = mesh->mNormals[face.mIndices[j]].y;
+                vertex.normal.z = mesh->mNormals[face.mIndices[j]].z;
+            }
+            
+            if (mesh->mTextureCoords[0]) {
+                vertex.texCoord.x = mesh->mTextureCoords[0][face.mIndices[j]].x;
+                vertex.texCoord.y = mesh->mTextureCoords[0][face.mIndices[j]].y;
+            } else {
+                vertex.texCoord = glm::vec2(0.0f, 0.0f);
+            }
+            
+            indices.push_back(uniqueVertices[vertex]);
+        }
     }
 }
 

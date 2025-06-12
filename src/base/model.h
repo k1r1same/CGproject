@@ -2,11 +2,17 @@
 
 #include <string>
 #include <vector>
+#include <unordered_map>
 
 #include "bounding_box.h"
 #include "gl_utility.h"
 #include "transform.h"
 #include "vertex.h"
+
+// assimp前向声明
+struct aiNode;
+struct aiScene;
+struct aiMesh;
 
 class Model {
 public:
@@ -70,5 +76,16 @@ protected:
     void initBoxGLResources();
 
     void cleanup();
+    
+    // assimp相关的辅助函数
+    void processNode(aiNode* node, const aiScene* scene, 
+                    std::vector<Vertex>& vertices, 
+                    std::vector<uint32_t>& indices,
+                    std::unordered_map<Vertex, uint32_t>& uniqueVertices);
+    
+    void processMesh(aiMesh* mesh, const aiScene* scene,
+                    std::vector<Vertex>& vertices, 
+                    std::vector<uint32_t>& indices,
+                    std::unordered_map<Vertex, uint32_t>& uniqueVertices);
     
 };
