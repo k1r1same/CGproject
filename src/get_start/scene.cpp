@@ -465,13 +465,19 @@ void Scene::initGameObjects() {
 	}
 
 	try {
-		_turretModel.reset(new Model(getAssetFullPath("obj/turret.obj")));
-    _turretModel->transform.scale = glm::vec3(6.0f, 1.5f, 1.5f);
+		_turretModel[0].reset(new Model(getAssetFullPath("obj/turret01.obj")));
+    _turretModel[0]->transform.scale = glm::vec3(6.0f, 1.5f, 1.5f);
 	}
 	catch (...) {
 		std::cout << "Warning: turret.obj not found, using basic rendering" << std::endl;
 	}
-
+  try {
+		_turretModel[1].reset(new Model(getAssetFullPath("obj/turret02.obj")));
+    _turretModel[1]->transform.scale = glm::vec3(6.0f, 1.5f, 1.5f);
+	}
+	catch (...) {
+		std::cout << "Warning: turret02.obj not found, using basic rendering" << std::endl;
+	}
 	try {
 		std::cout << "loading: " + getAssetFullPath("obj/colt_SAA_(OBJ).obj") << std::endl;
 		_gunModel.reset(new Model(getAssetFullPath("obj/colt_SAA_(OBJ).obj")));
@@ -981,15 +987,32 @@ void Scene::renderLaunchers() {
 
         glm::mat4 model = glm::mat4(1.0f);
         model = glm::translate(model, launcher.position-glm::vec3(0.0f, 1.2f, 0.0f));
-		model = glm::scale(model, glm::vec3(1.0f, 1.0f, 0.8f));
-		model *= rotation;
+		    model = glm::scale(model, glm::vec3(1.0f, 1.0f, 0.8f));
+		    model *= rotation;
         model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1, 0, 0));
         model = glm::rotate(model, glm::radians(180.0f), glm::vec3(0, 1, 0));
 		
-        if (_turretModel) {
+        static float time = 0.0f;
+        static bool forward = true;
+        if (forward) time += _deltaTime*0.1f;
+        else time -= _deltaTime*0.1f;
+        if (time >= 1.0f) {
+          std::cout << "time: " << time << std::endl;
+          time = 1.0f;
+          forward = false;
+        }
+        if (time <= 0.0f) {
+          time = 0.0f;
+          forward = true;
+        }
+        if (_turretModel[0]) {
             _litTexShader->setUniformMat4("model", model);
             _turrettex->bind();
-	        _turretModel->draw();
+            Model currentmodel = _turretModel[0]->interpolateModel(
+                *_turretModel[0], *_turretModel[1], 
+                time
+            );
+	        currentmodel.draw();
 	    }
 	}
 }

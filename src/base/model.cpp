@@ -265,3 +265,22 @@ void Model::cleanup() {
         _vao = 0;
     }
 }
+Model Model::interpolateModel(const Model& m1, const Model& m2, float t) {
+    const auto& v1 = m1.getVertices();
+    const auto& v2 = m2.getVertices();
+    std::vector<Vertex> interpolatedVertices;
+
+    if (v1.size() != v2.size()) {
+        throw std::runtime_error("Model vertex count mismatch!");
+    }
+
+    for (size_t i = 0; i < v1.size(); ++i) {
+        Vertex v;
+        v.position = glm::mix(v1[i].position, v2[i].position, t);
+        v.normal = glm::normalize(glm::mix(v1[i].normal, v2[i].normal, t));
+        v.texCoord = glm::mix(v1[i].texCoord, v2[i].texCoord, t);
+        interpolatedVertices.push_back(v);
+    }
+
+    return Model(interpolatedVertices, m1.getIndices());
+}

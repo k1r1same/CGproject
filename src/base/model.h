@@ -41,6 +41,7 @@ public:
     const Vertex& getVertex(int i) const {
         return _vertices[i];
     }
+    Model interpolateModel(const Model& m1, const Model& m2, float t);
 
 public:
     Transform transform;
@@ -69,4 +70,5 @@ protected:
     void initBoxGLResources();
 
     void cleanup();
+    
 };

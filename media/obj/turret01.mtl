@@ -1,0 +1,13 @@
+# Blender 4.4.3 MTL File: 'None'
+# www.blender.org
+
+newmtl M_Turret.008
+Ka 1.000000 1.000000 1.000000
+Kd 0.246193 0.246193 0.246193
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 3
+map_Ns E:/gitcg/CGproject/out/build/x64-Debug/media/obj/E:/3D MODELS/Published/Combat laser turret, level 1/Textures/4K/T__roughness.png
+map_Bump E:/gitcg/CGproject/out/build/x64-Debug/media/obj/E:/3D MODELS/Published/Combat laser turret, level 1/Textures/4K/T__normal.png

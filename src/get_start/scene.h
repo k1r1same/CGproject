@@ -119,7 +119,7 @@ private:
     std::unique_ptr<GLSLProgram> _litTexShader;  // 带光照的纹理着色器
     std::unique_ptr<Model> _sphereModel;
     std::unique_ptr<Model> _cylinderModel;
-    std::unique_ptr<Model> _turretModel;
+    std::unique_ptr<Model> _turretModel[2];
     std::unique_ptr<Model> _gunModel;
     std::unique_ptr<Model> _flashModel;
     std::unique_ptr<SkyBox> _skybox;
