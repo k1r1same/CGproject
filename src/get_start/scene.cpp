@@ -481,6 +481,14 @@ void Scene::initGameObjects() {
 		std::cout << "Warning: colt_SAA_(OBJ).obj not found, using basic rendering" << std::endl;
 	}
 
+	try {
+		_flashModel.reset(new Model(getAssetFullPath("obj/muzzle_flash.obj")));
+	_flashModel->transform.scale = glm::vec3(1.0f, 1.0f, 1.0f);
+	}
+	catch (...) {
+		std::cout << "Warning: muzzle_flash.obj not found, using basic rendering" << std::endl;
+	}
+
 	_player.position = glm::vec3(0.0f, 0.0f, 0.0f);
 	_player.health = 3;
 
@@ -488,12 +496,24 @@ void Scene::initGameObjects() {
 }
 
 void Scene::initTex() {
-  const std::string turretTextureRelPath = "texture/turret/T_2K__albedo.png";
-  const std::string gunTextureBaseRelPath = "texture/gun/colt_saa_BaseColor.png";
-  std::shared_ptr<Texture2D> gunTextureBase = std::make_shared<ImageTexture2D>(getAssetFullPath(gunTextureBaseRelPath));
-  std::shared_ptr<Texture2D> turretTexture = std::make_shared<ImageTexture2D>(getAssetFullPath(turretTextureRelPath));
-  _turrettex = turretTexture;
-  _guntexbase = gunTextureBase;
+	const std::string turretTextureRelPath = "texture/turret/T_2K__albedo.png";
+	const std::string gunTextureBaseRelPath = "texture/gun/colt_saa_BaseColor.png";
+	const std::vector<std::string> flashTextureRelPaths = {
+		"texture/flash/muzzle_flash_01.png",
+		"texture/flash/muzzle_flash_02.png",
+		"texture/flash/muzzle_flash_04.png",
+		"texture/flash/muzzle_flash_05.png"
+	};
+
+	std::shared_ptr<Texture2D> gunTextureBase = std::make_shared<ImageTexture2D>(getAssetFullPath(gunTextureBaseRelPath));
+	std::shared_ptr<Texture2D> turretTexture = std::make_shared<ImageTexture2D>(getAssetFullPath(turretTextureRelPath));
+	_turrettex = turretTexture;
+	_guntexbase = gunTextureBase;
+	_flashtexs.clear();
+	for (auto flashTextureRelPath : flashTextureRelPaths) {
+		std::shared_ptr<Texture2D> flashTexture = std::make_shared<ImageTexture2D>(getAssetFullPath(flashTextureRelPath));
+		_flashtexs.push_back(flashTexture);
+	}
 }
 
 void Scene::setupLaunchers(int count) {
@@ -663,6 +683,7 @@ void Scene::renderFrame() {
 		renderLightIndicator();
 		_skybox->draw(projection, view);
 		renderGun();
+		renderMuzzleFlash();
 		renderGameUI();
 		renderCrosshair();
 	}
@@ -673,6 +694,7 @@ void Scene::renderFrame() {
 		renderLightIndicator();
 		_skybox->draw(projection, view);
 		renderGun();
+		renderMuzzleFlash();
 		renderWaveBreakUI();
 	}
 	else if (_gameState == GameState::GameOver) {
@@ -682,6 +704,7 @@ void Scene::renderFrame() {
 		renderLightIndicator();
 		_skybox->draw(projection, view);
 		renderGun();
+		renderMuzzleFlash();
 		renderGameUI();
 	}
 	
@@ -756,9 +779,20 @@ void Scene::updateLaunchers() {
 
 void Scene::updateGun() {
     static float recoilTimer = 0.0f;
+	static float flashTimer = 0.0f;
     static const float recoilDuration = 0.1f;
+	static const float flashDuration = 0.02f;
     static const float recoilDistance = 0.2f;
 	static const float maxPitchAngle = glm::radians(25.0f);
+
+	if (_isFlashing) {
+		flashTimer += _deltaTime;
+		if (flashTimer >= flashDuration) {
+			_isFlashing = false;
+			flashTimer = 0.0f;
+			_currentFlashtex = (_currentFlashtex + 1) % _flashtexs.size();
+		}
+	}
 
     if (_isRecoiling) {
         recoilTimer += _deltaTime;
@@ -997,6 +1031,24 @@ void Scene::renderGun() {
 		_guntexbase->bind(0);
         _gunModel->draw();
     }
+}
+
+void Scene::renderMuzzleFlash() {
+	if (!_isFlashing) { return; }
+	_texshader->use();
+    glm::mat4 view = glm::mat4(1.0f);
+	glm::mat4 projection = _camera->getProjectionMatrix();
+	glm::mat4 model = glm::mat4(1.0f);
+	model = glm::translate(model, _muzzleFlash.position);
+	model = glm::scale(model, glm::vec3(0.8f));
+
+	if (_flashModel) {
+	_texshader->setUniformMat4("projection", projection);
+	_texshader->setUniformMat4("view", view); 
+		_texshader->setUniformMat4("model", model);
+		_flashtexs[_currentFlashtex]->bind();
+		_flashModel->draw();
+	}
 }
 
 void Scene::renderLightIndicator() {
@@ -1326,6 +1378,7 @@ void Scene::handleMouseClick() {
 	}
 
 	_isRecoiling = true;
+	_isFlashing = true;
 }
 
 void Scene::startBulletDestroy(size_t bulletIndex) {

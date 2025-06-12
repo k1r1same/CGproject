@@ -52,6 +52,10 @@ struct Gun {
     glm::vec3 direction{0.0f, 0.0f, -1.0f};
 };
 
+struct MuzzleFlash {
+    glm::vec3 position{0.5f, -0.1f, -1.2f};
+};
+
 class Scene : public Application {
 public:
     Scene(const Options& options);
@@ -69,6 +73,8 @@ private:
     float _waveTimer = 0.0f;
     float _breakTime = 5.0f;
     float _breakTimer = 0.0f;
+
+    int _currentFlashtex = 0;
     
     // UI effects
     float _blinkTimer = 0.0f;
@@ -93,7 +99,7 @@ private:
     
     // Mouse click state tracking
     bool _prevMouseLeftPressed = false;
-
+    bool _isFlashing = false;
     bool _isRecoiling = false;
     
     // Mouse mode for UI/Camera control
@@ -105,6 +111,7 @@ private:
     std::vector<Bullet> _bullets;
     std::vector<Launcher> _launchers;
     Gun _gun;
+    MuzzleFlash _muzzleFlash;
     
     // Rendering
     std::unique_ptr<GLSLProgram> _shader;
@@ -114,11 +121,13 @@ private:
     std::unique_ptr<Model> _cylinderModel;
     std::unique_ptr<Model> _turretModel;
     std::unique_ptr<Model> _gunModel;
+    std::unique_ptr<Model> _flashModel;
     std::unique_ptr<SkyBox> _skybox;
     
     // Texture
     std::shared_ptr<Texture2D> _turrettex;
     std::shared_ptr<Texture2D> _guntexbase;
+    std::vector<std::shared_ptr<Texture2D>> _flashtexs;
 
     // Text
     std::unique_ptr<TextRenderer> _textrenderer;
@@ -159,6 +168,7 @@ private:
     void renderBullets();
     void renderLaunchers();
     void renderGun();
+    void renderMuzzleFlash();
     void renderLightIndicator();
     void renderUI();
     void renderGameUI();
